@@ -155,6 +155,9 @@ export interface ConfiguracaoGlobal {
   corPrincipal: string;
   diasLembrete: number[];
   horarioLembrete: string;
+  dataInicioLembretes?: string;
+  dataFimLembretes?: string;
+  diaInicialLembretes?: 'quinta' | 'quarta';
   prazoLimite: number;
   prazoIA: number;
   intervaloIA: number;
