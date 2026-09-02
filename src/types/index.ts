@@ -153,6 +153,7 @@ export interface ConfiguracaoGlobal {
   nomeInstituicao: string;
   logoUrl: string;
   corPrincipal: string;
+  disciplinas?: string[];
   diasLembrete: number[];
   horarioLembrete: string;
   dataInicioLembretes?: string;

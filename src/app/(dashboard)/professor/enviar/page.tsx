@@ -13,8 +13,13 @@ import { PageLoading } from '@/components/ui/Loading';
 import { FirestoreService, DOC_TYPES } from '@/lib/services/firestore';
 import { storageProvider, validateFile, generateStoragePath } from '@/lib/services/storage';
 import { emailService } from '@/lib/services/email';
-import { Aluno, Turma, Envio, Historico, User } from '@/types';
+import { Aluno, Turma, Envio, Historico, User, ConfiguracaoGlobal } from '@/types';
 import { getCurrentDate, getCurrentTime } from '@/lib/utils';
+
+const defaultDisciplinas = [
+  'Português', 'Matemática', 'Ciências', 'História', 'Geografia',
+  'Inglês', 'Educação Física', 'Artes', 'Música', 'Informática', 'Educação Digital'
+];
 
 function EnviarAtividadeContent() {
   const router = useRouter();
@@ -27,6 +32,7 @@ function EnviarAtividadeContent() {
   const [aluno, setAluno] = useState<Aluno | null>(null);
   const [turma, setTurma] = useState<Turma | null>(null);
   const [pedagogaNome, setPedagogaNome] = useState('');
+  const [disciplinas, setDisciplinas] = useState<string[]>(user?.disciplinas && user.disciplinas.length > 0 ? user.disciplinas : defaultDisciplinas);
   const [formData, setFormData] = useState({
     disciplina: '',
     comentarios: '',
@@ -44,8 +50,6 @@ function EnviarAtividadeContent() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  const disciplinas = user?.disciplinas || ['Portugues', 'Matematica', 'Ciencias', 'Historia', 'Geografia', 'Ingles', 'Educacao Fisica', 'Artes', 'Musica', 'Informatica', 'Educacao Digital', 'Educação Digital'];
-
   useEffect(() => {
     if (!authLoading && user && turmaId && alunoId) loadData();
     else if (!authLoading) setLoading(false);
@@ -53,12 +57,19 @@ function EnviarAtividadeContent() {
 
   const loadData = async () => {
     try {
-      const [alunoData, turmaData] = await Promise.all([
+      const [alunoData, turmaData, configs] = await Promise.all([
         FirestoreService.getById<Aluno>(alunoId),
         FirestoreService.getById<Turma>(turmaId),
+        FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO),
       ]);
       setAluno(alunoData);
       setTurma(turmaData);
+
+      if (user?.disciplinas && user.disciplinas.length > 0) {
+        setDisciplinas(user.disciplinas);
+      } else if (configs.length > 0 && configs[0].disciplinas && configs[0].disciplinas.length > 0) {
+        setDisciplinas(configs[0].disciplinas);
+      }
 
       // Busca nome do pedagogo
       if (turmaData?.pedagogoId) {

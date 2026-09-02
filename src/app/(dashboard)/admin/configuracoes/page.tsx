@@ -12,11 +12,17 @@ import { PageLoading } from '@/components/ui/Loading';
 import { FirestoreService, DOC_TYPES } from '@/lib/services/firestore';
 import { ConfiguracaoGlobal } from '@/types';
 
+const defaultDisciplinas = [
+  'Português', 'Matemática', 'Ciências', 'História', 'Geografia',
+  'Inglês', 'Educação Física', 'Artes', 'Música', 'Informática', 'Educação Digital'
+];
+
 export default function ConfiguracoesAdminPage() {
   const [config, setConfig] = useState<ConfiguracaoGlobal | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [novaDisciplina, setNovaDisciplina] = useState('');
 
   useEffect(() => { loadConfig(); }, []);
 
@@ -24,13 +30,18 @@ export default function ConfiguracoesAdminPage() {
     try {
       const configs = await FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO);
       if (configs.length > 0) {
-        setConfig(configs[0]);
+        const loadedConfig = configs[0];
+        if (!loadedConfig.disciplinas || loadedConfig.disciplinas.length === 0) {
+          loadedConfig.disciplinas = defaultDisciplinas;
+        }
+        setConfig(loadedConfig);
       } else {
         setConfig({
           id: '',
           nomeInstituicao: '',
           logoUrl: '',
           corPrincipal: '#3B82F6',
+          disciplinas: defaultDisciplinas,
           diasLembrete: [15, 7, 4, 3, 2, 1, 0],
           horarioLembrete: '09:00',
           dataInicioLembretes: '',
@@ -80,6 +91,22 @@ export default function ConfiguracoesAdminPage() {
     }
   };
 
+  const addDisciplina = () => {
+    if (!novaDisciplina.trim() || !config) return;
+    const item = novaDisciplina.trim();
+    const atuais = config.disciplinas || defaultDisciplinas;
+    if (!atuais.includes(item)) {
+      setConfig({ ...config, disciplinas: [...atuais, item] });
+    }
+    setNovaDisciplina('');
+  };
+
+  const removeDisciplina = (disciplina: string) => {
+    if (!config) return;
+    const atuais = config.disciplinas || defaultDisciplinas;
+    setConfig({ ...config, disciplinas: atuais.filter((d) => d !== disciplina) });
+  };
+
   if (loading) return <PageLoading />;
 
   return (
@@ -112,6 +139,39 @@ export default function ConfiguracoesAdminPage() {
               value={config?.corPrincipal || '#3B82F6'}
               onChange={(e) => setConfig({ ...config!, corPrincipal: e.target.value })}
             />
+          </CardContent>
+        </Card>
+
+        {/* Gerenciamento de Matérias / Disciplinas */}
+        <Card>
+          <CardHeader>
+            <h3 className="text-lg font-semibold text-gray-900">Matérias / Disciplinas</h3>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Nome da nova matéria (ex: Filosofia, Sociologia)"
+                value={novaDisciplina}
+                onChange={(e) => setNovaDisciplina(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDisciplina(); } }}
+              />
+              <Button type="button" onClick={addDisciplina}>Adicionar</Button>
+            </div>
+            <div className="flex flex-wrap gap-2 pt-2">
+              {(config?.disciplinas || defaultDisciplinas).map((d) => (
+                <span key={d} className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-800 px-3 py-1.5 rounded-full text-sm font-medium border border-blue-200">
+                  {d}
+                  <button
+                    type="button"
+                    onClick={() => removeDisciplina(d)}
+                    className="text-blue-500 hover:text-red-600 font-bold ml-1 rounded-full p-0.5"
+                    title="Remover matéria"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
           </CardContent>
         </Card>
 

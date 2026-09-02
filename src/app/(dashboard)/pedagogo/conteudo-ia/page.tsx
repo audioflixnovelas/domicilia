@@ -14,9 +14,13 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { PageLoading } from '@/components/ui/Loading';
 import { Modal } from '@/components/ui/Modal';
 import { FirestoreService, DOC_TYPES, whereEqual } from '@/lib/services/firestore';
-import { ConteudoIA } from '@/types';
+import { ConteudoIA, ConfiguracaoGlobal } from '@/types';
 
-const disciplinas = ['Portugues', 'Matematica', 'Ciencias', 'Historia', 'Geografia', 'Ingles', 'Educacao Fisica', 'Artes', 'Musica', 'Informatica', 'Educacao Digital', 'Educação Digital'];
+const defaultDisciplinas = [
+  'Português', 'Matemática', 'Ciências', 'História', 'Geografia',
+  'Inglês', 'Educação Física', 'Artes', 'Música', 'Informática', 'Educação Digital'
+];
+
 const series = ['1 serie', '2 serie', '3 serie', '4 serie', '5 serie', '6 serie', '7 serie', '8 serie', '9 serie', 'Ensino Medio'];
 const niveis = [
   { value: 'facil', label: 'Facil' },
@@ -27,6 +31,7 @@ const niveis = [
 export default function ConteudoIAPage() {
   const { user } = useAuth();
   const [conteudos, setConteudos] = useState<ConteudoIA[]>([]);
+  const [disciplinas, setDisciplinas] = useState<string[]>(defaultDisciplinas);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -43,15 +48,23 @@ export default function ConteudoIAPage() {
   const [deleteModal, setDeleteModal] = useState<{ open: boolean; id: string | null }>({ open: false, id: null });
 
   useEffect(() => {
-    if (user) loadConteudos();
+    if (user) loadData();
   }, [user]);
 
-  const loadConteudos = async () => {
+  const loadData = async () => {
     try {
-      const data = await FirestoreService.query<ConteudoIA>(DOC_TYPES.CONTEUDO_IA, [
-        whereEqual('pedagogoId', user!.id),
+      const [conteudosData, configs] = await Promise.all([
+        FirestoreService.query<ConteudoIA>(DOC_TYPES.CONTEUDO_IA, [
+          whereEqual('pedagogoId', user!.id),
+        ]),
+        FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO),
       ]);
-      setConteudos(data);
+
+      setConteudos(conteudosData);
+
+      if (configs.length > 0 && configs[0].disciplinas && configs[0].disciplinas.length > 0) {
+        setDisciplinas(configs[0].disciplinas);
+      }
     } catch (error) {
       console.error('Erro ao carregar conteudos:', error);
     } finally {
@@ -92,7 +105,7 @@ export default function ConteudoIAPage() {
         });
       }
       setModalOpen(false);
-      loadConteudos();
+      loadData();
     } catch (error) {
       console.error('Erro ao salvar:', error);
     } finally {
@@ -105,7 +118,7 @@ export default function ConteudoIAPage() {
     try {
       await FirestoreService.delete(deleteModal.id);
       setDeleteModal({ open: false, id: null });
-      loadConteudos();
+      loadData();
     } catch (error) {
       console.error('Erro ao excluir:', error);
     }
