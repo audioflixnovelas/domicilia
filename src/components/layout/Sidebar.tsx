@@ -31,7 +31,6 @@ const pedagogoNav: NavItem[] = [
 
 const professorNav: NavItem[] = [
   { label: 'Dashboard', href: '/professor', icon: '📊' },
-  { label: 'Minhas Turmas', href: '/professor/turmas', icon: '🏫' },
   { label: 'Histórico', href: '/professor/historico', icon: '📜' },
 ];
 

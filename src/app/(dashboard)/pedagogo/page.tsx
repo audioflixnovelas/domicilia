@@ -12,7 +12,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { PageLoading } from '@/components/ui/Loading';
 import { FirestoreService, DOC_TYPES, whereEqual } from '@/lib/services/firestore';
 import { User, Turma, Aluno, Envio } from '@/types';
-import { formatDate } from '@/lib/utils';
+import { formatDate, isPeriodoAtivoAluno } from '@/lib/utils';
 
 export default function PedagogoDashboardPage() {
   const router = useRouter();
@@ -48,10 +48,17 @@ export default function PedagogoDashboardPage() {
         (p) => p.pedagogoId === user!.id || (p.pedagogoIds || []).includes(user!.id)
       );
 
+      const alunosAtivosNoPeriodo = alunosData.filter(isPeriodoAtivoAluno);
+      const idsAlunosValidos = new Set(alunosAtivosNoPeriodo.map((a) => a.id));
+
       setProfessores(profsPedagogo);
       setTurmas(turmasData);
-      setAlunos(alunosData);
-      setEnviosPendentes(enviosData.filter((e) => e.status === 'pendente' || e.status === 'atrasado'));
+      setAlunos(alunosAtivosNoPeriodo);
+      setEnviosPendentes(
+        enviosData.filter(
+          (e) => (e.status === 'pendente' || e.status === 'atrasado') && idsAlunosValidos.has(e.alunoId)
+        )
+      );
     } catch (error) {
       console.error('Erro ao carregar dashboard pedagogo:', error);
     } finally {
@@ -80,7 +87,7 @@ export default function PedagogoDashboardPage() {
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Alunos em Atividade Domiciliar</dt>
                   <dd className="text-2xl font-bold text-gray-900">
-                    {alunos.filter((a) => a.domiciliar).length}
+                    {alunos.length}
                   </dd>
                 </dl>
               </div>
@@ -183,8 +190,8 @@ export default function PedagogoDashboardPage() {
                     <TableCell>{envio.disciplina}</TableCell>
                     <TableCell>{formatDate(envio.dataEnvio)}</TableCell>
                     <TableCell>
-                      <Badge variant={envio.status === 'atrasado' ? 'danger' : 'warning'}>
-                        {envio.status === 'atrasado' ? 'Atrasado' : 'Pendente'}
+                      <Badge variant="warning">
+                        Pendente
                       </Badge>
                     </TableCell>
                   </TableRow>

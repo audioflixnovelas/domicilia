@@ -1,4 +1,5 @@
 import { clsx, type ClassValue } from 'clsx';
+import { Aluno } from '@/types';
 
 export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
@@ -53,6 +54,14 @@ export function calculateDaysUntil(date: string): number {
 
 export function isOverdue(deadline: string): boolean {
   return new Date(deadline) < new Date();
+}
+
+export function isPeriodoAtivoAluno(aluno: Aluno): boolean {
+  if (!aluno.active || !aluno.domiciliar) return false;
+  const hojeStr = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+  if (aluno.dataInicio && hojeStr < aluno.dataInicio) return false;
+  if (aluno.dataFim && hojeStr > aluno.dataFim) return false;
+  return true;
 }
 
 export function getInitials(name: string): string {
