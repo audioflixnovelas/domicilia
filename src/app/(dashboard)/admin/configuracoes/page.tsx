@@ -55,6 +55,8 @@ export default function ConfiguracoesAdminPage() {
           textoEmailConfirmacao: 'Sua atividade foi enviada com sucesso.',
           assinaturaEmail: 'Atenciosamente,\nSistema de Atividades Domiciliares',
           emailDestinoNotificacoes: 'domiciliarmaluf@gmail.com',
+          googleCalendarId: 'primary',
+          googleCredentialsJson: '',
           iaHabilitada: false,
           iaProvider: 'llm7',
           iaApiKey: '',
@@ -171,6 +173,37 @@ export default function ConfiguracoesAdminPage() {
                   </button>
                 </span>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Google Agenda (Backend Python) */}
+        <Card>
+          <CardHeader>
+            <h3 className="text-lg font-semibold text-gray-900">Integração Google Agenda (Backend Python)</h3>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Input
+              label="ID da Agenda do Google (Calendar ID)"
+              value={config?.googleCalendarId || 'primary'}
+              onChange={(e) => setConfig({ ...config!, googleCalendarId: e.target.value })}
+              placeholder="ex: primary ou id_da_agenda@group.calendar.google.com"
+              helperText="Identificador do Google Agenda onde os eventos de atividades serão sincronizados"
+            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Credenciais Service Account JSON (Google)
+              </label>
+              <textarea
+                value={config?.googleCredentialsJson || ''}
+                onChange={(e) => setConfig({ ...config!, googleCredentialsJson: e.target.value })}
+                rows={4}
+                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 text-xs font-mono shadow-sm focus:border-blue-500 focus:outline-none"
+                placeholder='{"type": "service_account", "project_id": "...", ...}'
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Cole a chave JSON do Service Account do Google Cloud. Se deixado em branco, utiliza a variável de ambiente GOOGLE_CREDENTIALS_JSON.
+              </p>
             </div>
           </CardContent>
         </Card>

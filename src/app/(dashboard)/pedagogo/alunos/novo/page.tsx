@@ -10,7 +10,8 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import { FirestoreService, DOC_TYPES, whereEqual } from '@/lib/services/firestore';
-import { Turma, User, Envio } from '@/types';
+import { emailService } from '@/lib/services/email';
+import { Turma, User, Envio, ConfiguracaoGlobal } from '@/types';
 import { getCurrentDate, getCurrentTime } from '@/lib/utils';
 
 export default function NovoAlunoPage() {
@@ -74,12 +75,15 @@ export default function NovoAlunoPage() {
         });
       }
 
-      // Se aluno for domiciliar, gera registros de atividades pendentes
+      // Se aluno for domiciliar, gera registros de atividades pendentes e notifica professores
       if (formData.domiciliar) {
-        const [professores, envios] = await Promise.all([
+        const [professores, envios, configs] = await Promise.all([
           FirestoreService.getAllByType<User>(DOC_TYPES.USER),
           FirestoreService.getAllByType<Envio>(DOC_TYPES.ENVIO),
+          FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO),
         ]);
+
+        const globalConfig = configs.length > 0 ? configs[0] : null;
 
         const profsTurma = professores.filter(
           (p) => p.role === 'professor' && turma?.professorIds?.includes(p.id)
@@ -98,7 +102,7 @@ export default function NovoAlunoPage() {
               professorNome: prof.name,
               professorEmail: prof.email,
               turmaId: formData.turmaId,
-              disciplina: prof.disciplinas?.[0] || 'Educacao Digital',
+              disciplina: prof.disciplinas?.[0] || 'Atividade Domiciliar',
               versao: 1,
               status: 'pendente',
               arquivo: null,
@@ -109,6 +113,30 @@ export default function NovoAlunoPage() {
               alunoNome: formData.nome,
               turmaNome: turma?.nome || '',
             });
+
+            // Dispara e-mail avisando o professor
+            if (prof.email) {
+              await emailService.sendThursdayEmail(prof.name, prof.email);
+            }
+
+            // Sincroniza com Google Agenda via backend Python
+            try {
+              await fetch('/api/calendar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  calendarId: globalConfig?.googleCalendarId || 'primary',
+                  credentialsJson: globalConfig?.googleCredentialsJson,
+                  summary: `Atividade Domiciliar - ${formData.nome}`,
+                  description: `Prazo de Atividade Domiciliar para o aluno ${formData.nome} na turma ${turma?.nome || ''}.`,
+                  startDate: formData.dataInicio || getCurrentDate(),
+                  endDate: formData.dataFim || formData.dataInicio || getCurrentDate(),
+                  attendees: prof.email ? [prof.email] : [],
+                }),
+              });
+            } catch (calErr) {
+              console.error('Erro ao sincronizar com Google Agenda:', calErr);
+            }
           }
         }
       }

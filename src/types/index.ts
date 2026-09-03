@@ -159,6 +159,8 @@ export interface ConfiguracaoGlobal {
   dataInicioLembretes?: string;
   dataFimLembretes?: string;
   diaInicialLembretes?: 'quinta' | 'quarta';
+  googleCalendarId?: string;
+  googleCredentialsJson?: string;
   prazoLimite: number;
   prazoIA: number;
   intervaloIA: number;
