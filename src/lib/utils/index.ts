@@ -6,26 +6,32 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatDate(date: string | Date): string {
+  if (!date) return '-';
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const [year, month, day] = date.split('-');
+    return `${day}/${month}/${year}`;
+  }
   const d = new Date(date);
-  return d.toLocaleDateString('pt-BR');
+  if (isNaN(d.getTime())) return '-';
+  return d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 }
 
 export function formatDateTime(date: string | Date): string {
   const d = new Date(date);
-  return d.toLocaleString('pt-BR');
+  return d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 }
 
 export function formatTime(date: string | Date): string {
   const d = new Date(date);
-  return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
 }
 
 export function getCurrentDate(): string {
-  return new Date().toISOString().split('T')[0];
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 }
 
 export function getCurrentTime(): string {
-  return new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
 }
 
 export function getTimestamp(): string {
@@ -53,12 +59,13 @@ export function calculateDaysUntil(date: string): number {
 }
 
 export function isOverdue(deadline: string): boolean {
-  return new Date(deadline) < new Date();
+  const hojeStr = getCurrentDate();
+  return deadline < hojeStr;
 }
 
 export function isPeriodoAtivoAluno(aluno: Aluno): boolean {
   if (!aluno.active || !aluno.domiciliar) return false;
-  const hojeStr = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+  const hojeStr = getCurrentDate();
   if (aluno.dataInicio && hojeStr < aluno.dataInicio) return false;
   if (aluno.dataFim && hojeStr > aluno.dataFim) return false;
   return true;

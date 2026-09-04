@@ -14,13 +14,17 @@ import { FirestoreService, DOC_TYPES, whereEqual } from '@/lib/services/firestor
 import { Turma, Aluno, Envio } from '@/types';
 import { formatDate, isPeriodoAtivoAluno } from '@/lib/utils';
 
+interface EnvioComAluno extends Envio {
+  alunoDataFim?: string;
+}
+
 export default function ProfessorDashboardPage() {
   const router = useRouter();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [alunosMap, setAlunosMap] = useState<Record<string, Aluno[]>>({});
-  const [enviosPendentes, setEnviosPendentes] = useState<Envio[]>([]);
+  const [enviosPendentes, setEnviosPendentes] = useState<EnvioComAluno[]>([]);
 
   useEffect(() => {
     if (user) loadDashboardData();
@@ -52,11 +56,19 @@ export default function ProfessorDashboardPage() {
         whereEqual('professorId', user!.id),
       ]);
 
-      const idsAlunosValidos = new Set(alunosAtivosNoPeriodo.map((a) => a.id));
+      const alunosMapById = new Map(alunosAtivosNoPeriodo.map((a) => [a.id, a]));
 
-      const pendentesFiltrados = enviosData.filter(
-        (e) => (e.status === 'pendente' || e.status === 'atrasado') && idsAlunosValidos.has(e.alunoId)
-      );
+      const pendentesFiltrados: EnvioComAluno[] = [];
+
+      for (const e of enviosData) {
+        if ((e.status === 'pendente' || e.status === 'atrasado') && alunosMapById.has(e.alunoId)) {
+          const aluno = alunosMapById.get(e.alunoId);
+          pendentesFiltrados.push({
+            ...e,
+            alunoDataFim: aluno?.dataFim,
+          });
+        }
+      }
 
       setEnviosPendentes(pendentesFiltrados);
     } catch (error) {
@@ -163,7 +175,7 @@ export default function ProfessorDashboardPage() {
                     <TableCell className="font-medium text-gray-900">{envio.alunoNome || '-'}</TableCell>
                     <TableCell>{envio.turmaNome || '-'}</TableCell>
                     <TableCell>{envio.disciplina}</TableCell>
-                    <TableCell>{formatDate(envio.dataEnvio)}</TableCell>
+                    <TableCell>{formatDate(envio.alunoDataFim || envio.dataEnvio)}</TableCell>
                     <TableCell>
                       <Badge variant="warning">
                         Pendente
