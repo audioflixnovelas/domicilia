@@ -24,7 +24,7 @@ const pedagogoNav: NavItem[] = [
   { label: 'Professores', href: '/pedagogo/professores', icon: '👨‍🏫' },
   { label: 'Turmas', href: '/pedagogo/turmas', icon: '🏫' },
   { label: 'Alunos', href: '/pedagogo/alunos', icon: '🎒' },
-  { label: 'Conteudos IA', href: '/pedagogo/conteudo-ia', icon: '🤖' },
+  { label: 'Lançar Atividades', href: '/pedagogo/conteudo-ia', icon: '📝' },
   { label: 'Relatorios', href: '/pedagogo/relatorios', icon: '📈' },
   { label: 'Configuracoes', href: '/pedagogo/configuracoes', icon: '⚙️' },
 ];

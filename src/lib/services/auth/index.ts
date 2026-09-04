@@ -7,6 +7,8 @@ import {
   createUserWithEmailAndPassword,
   getAuth,
   signOut as secondarySignOut,
+  GoogleAuthProvider,
+  signInWithPopup,
 } from 'firebase/auth';
 import { auth, firebaseConfig } from '@/lib/firebase/config';
 import { FirestoreService, DOC_TYPES, whereEqual } from '@/lib/services/firestore';
@@ -30,6 +32,52 @@ export class AuthService {
 
     if (!user.active) {
       throw new Error('Conta desabilitada. Contate o administrador.');
+    }
+
+    return user;
+  }
+
+  static async loginWithGoogle(): Promise<User> {
+    const provider = new GoogleAuthProvider();
+    const userCredential = await signInWithPopup(auth, provider);
+    const firebaseUser = userCredential.user;
+
+    // Busca usuario existente pelo uid ou email
+    let users = await FirestoreService.query<User>(DOC_TYPES.USER, [
+      whereEqual('uid', firebaseUser.uid),
+    ]);
+
+    if (users.length === 0 && firebaseUser.email) {
+      users = await FirestoreService.query<User>(DOC_TYPES.USER, [
+        whereEqual('email', firebaseUser.email),
+      ]);
+    }
+
+    if (users.length === 0) {
+      // Se for novo login com Google por padrao vincula perfil de professor se nao cadastrado
+      const newUserId = firebaseUser.uid;
+      await FirestoreService.createAtId<User>(newUserId, DOC_TYPES.USER, {
+        uid: firebaseUser.uid,
+        email: firebaseUser.email || '',
+        name: firebaseUser.displayName || 'Professor',
+        role: 'professor',
+        active: true,
+      });
+
+      const newUser = await FirestoreService.getById<User>(newUserId);
+      if (!newUser) throw new Error('Erro ao criar usuario com Google');
+      return newUser;
+    }
+
+    const user = users[0];
+
+    if (!user.active) {
+      throw new Error('Conta desabilitada. Contate o administrador.');
+    }
+
+    // Se o uid do Firebase Auth nao tava salvo, atualiza
+    if (!user.uid || user.uid !== firebaseUser.uid) {
+      await FirestoreService.update(user.id, { uid: firebaseUser.uid });
     }
 
     return user;
