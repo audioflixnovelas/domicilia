@@ -31,7 +31,7 @@ export default function ConfiguracoesAdminPage() {
       const configs = await FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO);
       if (configs.length > 0) {
         const loadedConfig = configs[0];
-        if (!loadedConfig.disciplinas || loadedConfig.disciplinas.length === 0) {
+        if (!Array.isArray(loadedConfig.disciplinas)) {
           loadedConfig.disciplinas = defaultDisciplinas;
         }
         setConfig(loadedConfig);
@@ -73,15 +73,23 @@ export default function ConfiguracoesAdminPage() {
     }
   };
 
+  const saveConfigToFirestore = async (configToSave: ConfiguracaoGlobal) => {
+    if (configToSave.id) {
+      await FirestoreService.update(configToSave.id, configToSave);
+      return configToSave.id;
+    } else {
+      const newId = await FirestoreService.create(DOC_TYPES.CONFIGURACAO, configToSave);
+      return newId;
+    }
+  };
+
   const handleSave = async () => {
     if (!config) return;
     setSaving(true);
     setSuccess(false);
     try {
-      if (config.id) {
-        await FirestoreService.update(config.id, config);
-      } else {
-        const id = await FirestoreService.create(DOC_TYPES.CONFIGURACAO, config);
+      const id = await saveConfigToFirestore(config);
+      if (!config.id) {
         setConfig({ ...config, id });
       }
       setSuccess(true);
@@ -93,20 +101,44 @@ export default function ConfiguracoesAdminPage() {
     }
   };
 
-  const addDisciplina = () => {
+  const addDisciplina = async () => {
     if (!novaDisciplina.trim() || !config) return;
     const item = novaDisciplina.trim();
     const atuais = config.disciplinas || defaultDisciplinas;
     if (!atuais.includes(item)) {
-      setConfig({ ...config, disciplinas: [...atuais, item] });
+      const novasDisciplinas = [...atuais, item];
+      const updatedConfig = { ...config, disciplinas: novasDisciplinas };
+      setConfig(updatedConfig);
+      setNovaDisciplina('');
+
+      try {
+        const id = await saveConfigToFirestore(updatedConfig);
+        if (!config.id) setConfig({ ...updatedConfig, id });
+        setSuccess(true);
+        setTimeout(() => setSuccess(false), 2000);
+      } catch (err) {
+        console.error('Erro ao salvar nova matéria:', err);
+      }
+    } else {
+      setNovaDisciplina('');
     }
-    setNovaDisciplina('');
   };
 
-  const removeDisciplina = (disciplina: string) => {
+  const removeDisciplina = async (disciplina: string) => {
     if (!config) return;
     const atuais = config.disciplinas || defaultDisciplinas;
-    setConfig({ ...config, disciplinas: atuais.filter((d) => d !== disciplina) });
+    const novasDisciplinas = atuais.filter((d) => d !== disciplina);
+    const updatedConfig = { ...config, disciplinas: novasDisciplinas };
+    setConfig(updatedConfig);
+
+    try {
+      const id = await saveConfigToFirestore(updatedConfig);
+      if (!config.id) setConfig({ ...updatedConfig, id });
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2000);
+    } catch (err) {
+      console.error('Erro ao remover matéria:', err);
+    }
   };
 
   if (loading) return <PageLoading />;
@@ -157,7 +189,7 @@ export default function ConfiguracoesAdminPage() {
                 onChange={(e) => setNovaDisciplina(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDisciplina(); } }}
               />
-              <Button type="button" onClick={addDisciplina}>Adicionar</Button>
+              <Button type="button" onClick={addDisciplina}>Adicionar Matéria</Button>
             </div>
             <div className="flex flex-wrap gap-2 pt-2">
               {(config?.disciplinas || defaultDisciplinas).map((d) => (
@@ -166,7 +198,7 @@ export default function ConfiguracoesAdminPage() {
                   <button
                     type="button"
                     onClick={() => removeDisciplina(d)}
-                    className="text-blue-500 hover:text-red-600 font-bold ml-1 rounded-full p-0.5"
+                    className="text-blue-500 hover:text-red-600 font-bold ml-1 rounded-full p-0.5 cursor-pointer"
                     title="Remover matéria"
                   >
                     ×
