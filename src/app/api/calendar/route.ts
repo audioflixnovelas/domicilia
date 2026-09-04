@@ -3,10 +3,18 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const { action } = body;
 
     const pythonBackendUrl = process.env.PYTHON_CALENDAR_SERVICE_URL || 'http://localhost:5001';
 
-    const response = await fetch(`${pythonBackendUrl}/events/create`, {
+    let endpoint = '/events/create';
+    if (action === 'get_auth_url') {
+      endpoint = '/auth/url';
+    } else if (action === 'callback') {
+      endpoint = '/auth/callback';
+    }
+
+    const response = await fetch(`${pythonBackendUrl}${endpoint}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
