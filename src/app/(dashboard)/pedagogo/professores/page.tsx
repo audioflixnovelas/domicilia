@@ -1,174 +1,200 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
+import { Badge } from '@/components/ui/Badge';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { PageLoading } from '@/components/ui/Loading';
+import { Modal } from '@/components/ui/Modal';
 import { FirestoreService, DOC_TYPES, whereEqual } from '@/lib/services/firestore';
 import { User, Turma } from '@/types';
 
-export default function EditarProfessorPage() {
+export default function ProfessoresPage() {
   const router = useRouter();
-  const params = useParams();
   const { user } = useAuth();
-  const id = params.id as string;
-
+  const [professores, setProfessores] = useState<User[]>([]);
   const [turmas, setTurmas] = useState<Turma[]>([]);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    turmaIds: [] as string[],
-    disciplinas: [] as string[],
-  });
-  const [turmaIdsAntigos, setTurmaIdsAntigos] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-
-  const disciplinasOptions = ['Portugues', 'Matematica', 'Ciencias', 'Historia', 'Geografia', 'Ingles', 'Educacao Fisica', 'Artes', 'Musica', 'Informatica', 'Educacao Digital', 'Educação Digital'];
+  const [deleteModal, setDeleteModal] = useState<{ open: boolean; professor: User | null }>({
+    open: false,
+    professor: null,
+  });
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (user) loadData();
-  }, [id, user]);
+  }, [user]);
 
   const loadData = async () => {
     try {
-      const [professorData, turmasData] = await Promise.all([
-        FirestoreService.getById<User>(id),
+      const [professoresData, turmasData] = await Promise.all([
+        FirestoreService.query<User>(DOC_TYPES.USER, [
+          whereEqual('role', 'professor'),
+        ]),
         FirestoreService.query<Turma>(DOC_TYPES.TURMA, [
           whereEqual('pedagogoId', user!.id),
           whereEqual('active', true),
         ]),
       ]);
 
-      if (professorData) {
-        const tIds = professorData.turmaIds || [];
-        setFormData({
-          name: professorData.name,
-          email: professorData.email,
-          turmaIds: tIds,
-          disciplinas: professorData.disciplinas || [],
-        });
-        setTurmaIdsAntigos(tIds);
-      }
+      const profsDoPedagogo = professoresData.filter(
+        (p) => p.pedagogoId === user!.id || (p.pedagogoIds || []).includes(user!.id)
+      );
+
+      setProfessores(profsDoPedagogo);
       setTurmas(turmasData);
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
+      console.error('Erro ao carregar professores:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSaving(true);
-
+  const toggleStatus = async (professor: User) => {
     try {
-      // Atualiza o professor
-      await FirestoreService.update(id, {
-        name: formData.name,
-        email: formData.email,
-        turmaIds: formData.turmaIds,
-        disciplinas: formData.disciplinas,
+      await FirestoreService.update(professor.id, {
+        active: !professor.active,
       });
-
-      // Remove professor das turmas removidas
-      for (const turmaId of turmaIdsAntigos) {
-        if (!formData.turmaIds.includes(turmaId)) {
-          const turma = turmas.find((t) => t.id === turmaId);
-          if (turma) {
-            const profsAtualizados = (turma.professorIds || []).filter((p) => p !== id);
-            await FirestoreService.update(turmaId, { professorIds: profsAtualizados });
-          }
-        }
-      }
-
-      // Adiciona professor nas turmas novas
-      for (const turmaId of formData.turmaIds) {
-        if (!turmaIdsAntigos.includes(turmaId)) {
-          const turma = turmas.find((t) => t.id === turmaId);
-          if (turma) {
-            const profsAtuais = turma.professorIds || [];
-            if (!profsAtuais.includes(id)) {
-              await FirestoreService.update(turmaId, { professorIds: [...profsAtuais, id] });
-            }
-          }
-        }
-      }
-
-      router.push('/pedagogo/professores');
-    } catch (err: any) {
-      setError(err.message || 'Erro ao atualizar professor');
-    } finally {
-      setSaving(false);
+      loadData();
+    } catch (error) {
+      console.error('Erro ao alterar status do professor:', error);
     }
   };
 
-  const toggleTurma = (turmaId: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      turmaIds: prev.turmaIds.includes(turmaId)
-        ? prev.turmaIds.filter((id) => id !== turmaId)
-        : [...prev.turmaIds, turmaId],
-    }));
+  const handleDelete = async () => {
+    if (!deleteModal.professor) return;
+    setDeleting(true);
+    try {
+      await FirestoreService.delete(deleteModal.professor.id);
+      setDeleteModal({ open: false, professor: null });
+      loadData();
+    } catch (error) {
+      console.error('Erro ao excluir professor:', error);
+    } finally {
+      setDeleting(false);
+    }
   };
 
-  const toggleDisciplina = (disciplina: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      disciplinas: prev.disciplinas.includes(disciplina)
-        ? prev.disciplinas.filter((d) => d !== disciplina)
-        : [...prev.disciplinas, disciplina],
-    }));
+  const getTurmasNomes = (turmaIds?: string[]) => {
+    if (!turmaIds || turmaIds.length === 0) return '-';
+    return turmas
+      .filter((t) => turmaIds.includes(t.id))
+      .map((t) => t.nome)
+      .join(', ') || '-';
   };
 
   if (loading) return <PageLoading />;
 
   return (
     <DashboardLayout>
-      <PageHeader title="Editar Professor" description="Atualize os dados do professor" />
-      <Card className="max-w-2xl">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <Input label="Nome Completo" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
-          <Input label="E-mail" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required />
+      <PageHeader
+        title="Gerenciar Professores"
+        description="Cadastre, edite e gerencie os professores sob sua responsabilidade"
+        actions={
+          <Button onClick={() => router.push('/pedagogo/professores/novo')}>
+            Novo Professor
+          </Button>
+        }
+      />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Turmas</label>
-            <div className="grid grid-cols-2 gap-2">
-              {turmas.map((turma) => (
-                <label key={turma.id} className="flex items-center space-x-2 p-2 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
-                  <input type="checkbox" checked={formData.turmaIds.includes(turma.id)} onChange={() => toggleTurma(turma.id)} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                  <span className="text-sm text-gray-700">{turma.nome}</span>
-                </label>
+      {professores.length === 0 ? (
+        <EmptyState
+          title="Nenhum professor cadastrado"
+          description="Cadastre professores para associá-los a turmas e disciplinas."
+          action={
+            <Button onClick={() => router.push('/pedagogo/professores/novo')}>
+              Cadastrar Professor
+            </Button>
+          }
+        />
+      ) : (
+        <Card>
+          <Table>
+            <TableHeader>
+              <tr>
+                <TableHead>Nome</TableHead>
+                <TableHead>E-mail</TableHead>
+                <TableHead>Turmas</TableHead>
+                <TableHead>Disciplinas</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Ações</TableHead>
+              </tr>
+            </TableHeader>
+            <TableBody>
+              {professores.map((professor) => (
+                <TableRow key={professor.id}>
+                  <TableCell>
+                    <div className="font-medium text-gray-900">{professor.name}</div>
+                  </TableCell>
+                  <TableCell>{professor.email}</TableCell>
+                  <TableCell>{getTurmasNomes(professor.turmaIds)}</TableCell>
+                  <TableCell>{professor.disciplinas?.join(', ') || '-'}</TableCell>
+                  <TableCell>
+                    <Badge variant={professor.active ? 'success' : 'danger'}>
+                      {professor.active ? 'Ativo' : 'Inativo'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/pedagogo/professores/${professor.id}/editar`)}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleStatus(professor)}
+                      >
+                        {professor.active ? 'Desabilitar' : 'Reabilitar'}
+                      </Button>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => setDeleteModal({ open: true, professor })}
+                      >
+                        Excluir
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
               ))}
-            </div>
-          </div>
+            </TableBody>
+          </Table>
+        </Card>
+      )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Disciplinas</label>
-            <div className="grid grid-cols-2 gap-2">
-              {disciplinasOptions.map((disciplina) => (
-                <label key={disciplina} className="flex items-center space-x-2 p-2 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
-                  <input type="checkbox" checked={formData.disciplinas.includes(disciplina)} onChange={() => toggleDisciplina(disciplina)} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                  <span className="text-sm text-gray-700">{disciplina}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
-          <div className="flex justify-end space-x-2">
-            <Button type="button" variant="outline" onClick={() => router.back()}>Cancelar</Button>
-            <Button type="submit" loading={saving}>Salvar</Button>
-          </div>
-        </form>
-      </Card>
+      {/* Modal de confirmação de exclusão */}
+      <Modal
+        isOpen={deleteModal.open}
+        onClose={() => setDeleteModal({ open: false, professor: null })}
+        title="Confirmar Exclusão"
+      >
+        <p className="text-gray-600">
+          Tem certeza que deseja excluir o professor{' '}
+          <strong className="text-gray-900">{deleteModal.professor?.name}</strong>?
+          Esta ação não poderá ser desfeita.
+        </p>
+        <div className="mt-6 flex justify-end space-x-2">
+          <Button
+            variant="outline"
+            onClick={() => setDeleteModal({ open: false, professor: null })}
+          >
+            Cancelar
+          </Button>
+          <Button variant="danger" loading={deleting} onClick={handleDelete}>
+            Excluir
+          </Button>
+        </div>
+      </Modal>
     </DashboardLayout>
   );
 }

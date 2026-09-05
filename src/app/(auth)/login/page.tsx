@@ -15,6 +15,12 @@ export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
 
+  const handleRedirect = (userRole: string) => {
+    if (userRole === 'admin') router.push('/admin');
+    else if (userRole === 'pedagogo') router.push('/pedagogo');
+    else router.push('/professor');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -22,9 +28,7 @@ export default function LoginPage() {
 
     try {
       const user = await login(email, password);
-      if (user.role === 'admin') router.push('/admin');
-      else if (user.role === 'pedagogo') router.push('/pedagogo');
-      else router.push('/professor');
+      handleRedirect(user.role);
     } catch (err: any) {
       setError(err.message || 'Erro ao fazer login');
     } finally {

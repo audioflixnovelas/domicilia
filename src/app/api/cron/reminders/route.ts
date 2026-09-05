@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FirestoreService, DOC_TYPES, whereEqual } from '@/lib/services/firestore';
-import { Aluno, Turma, Envio, User, CronLog } from '@/types';
+import { Aluno, Turma, Envio, User, CronLog, ConfiguracaoGlobal } from '@/types';
 import { emailService } from '@/lib/services/email';
 import { getCurrentTime } from '@/lib/utils';
 
@@ -39,6 +39,28 @@ async function handleRemindersCron(request: NextRequest) {
 
     const { dateStr, dayOfWeekStr } = getBrasiliaDateInfo();
 
+    // Carregar configurações globais do sistema
+    const configs = await FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO);
+    const globalConfig = configs.length > 0 ? configs[0] : null;
+
+    // Verificar intervalo de datas ativas configurado pelo admin
+    if (!force && globalConfig) {
+      if (globalConfig.dataInicioLembretes && dateStr < globalConfig.dataInicioLembretes) {
+        return NextResponse.json({
+          success: true,
+          message: `Lembretes ainda não iniciaram. Data de início configurada: ${globalConfig.dataInicioLembretes}`,
+          date: dateStr,
+        });
+      }
+      if (globalConfig.dataFimLembretes && dateStr > globalConfig.dataFimLembretes) {
+        return NextResponse.json({
+          success: true,
+          message: `Lembretes encerrados. Data de término configurada: ${globalConfig.dataFimLembretes}`,
+          date: dateStr,
+        });
+      }
+    }
+
     // Consultar histórico de disparos no Firestore
     const cronLogs = await FirestoreService.getAllByType<CronLog>(DOC_TYPES.CRON_LOG);
     const lastLog = cronLogs.length > 0
@@ -46,9 +68,15 @@ async function handleRemindersCron(request: NextRequest) {
       : null;
 
     const lastDispatchDay = lastLog?.lastDispatchDay; // 'quinta' | 'quarta' | undefined
+
+    // Configuração do dia inicial escolhido pelo admin (padrão: 'quinta')
+    const diaInicialConfig = globalConfig?.diaInicialLembretes || 'quinta';
+
     // Alternância: se a última semana mandou na quinta, mandar na quarta; se mandou na quarta, mandar na quinta.
-    // Se não houver histórico, o padrão inicial é quinta-feira.
-    const nextExpectedDay: 'quinta' | 'quarta' = lastDispatchDay === 'quinta' ? 'quarta' : 'quinta';
+    // Se não houver histórico de disparo, usa o dia inicial definido na configuração.
+    const nextExpectedDay: 'quinta' | 'quarta' = lastDispatchDay
+      ? (lastDispatchDay === 'quinta' ? 'quarta' : 'quinta')
+      : diaInicialConfig;
 
     const isThursday = dayOfWeekStr === 'thursday';
     const isWednesday = dayOfWeekStr === 'wednesday';

@@ -153,8 +153,17 @@ export interface ConfiguracaoGlobal {
   nomeInstituicao: string;
   logoUrl: string;
   corPrincipal: string;
+  disciplinas?: string[];
   diasLembrete: number[];
   horarioLembrete: string;
+  dataInicioLembretes?: string;
+  dataFimLembretes?: string;
+  diaInicialLembretes?: 'quinta' | 'quarta';
+  googleCalendarId?: string;
+  googleCredentialsJson?: string;
+  googleOAuthClientId?: string;
+  googleOAuthClientSecret?: string;
+  googleOAuthTokensJson?: string;
   prazoLimite: number;
   prazoIA: number;
   intervaloIA: number;

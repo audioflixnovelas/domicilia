@@ -1,64 +1,68 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
+import { Badge } from '@/components/ui/Badge';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { PageLoading } from '@/components/ui/Loading';
-import { FirestoreService, DOC_TYPES } from '@/lib/services/firestore';
+import { Modal } from '@/components/ui/Modal';
+import { FirestoreService, DOC_TYPES, whereEqual } from '@/lib/services/firestore';
 import { User } from '@/types';
 
-export default function EditarPedagogoPage() {
+export default function PedagogosAdminPage() {
   const router = useRouter();
-  const params = useParams();
-  const id = params.id as string;
-
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-  });
+  const [pedagogos, setPedagogos] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [deleteModal, setDeleteModal] = useState<{ open: boolean; pedagogo: User | null }>({
+    open: false,
+    pedagogo: null,
+  });
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    loadPedagogo();
-  }, [id]);
+    loadPedagogos();
+  }, []);
 
-  const loadPedagogo = async () => {
+  const loadPedagogos = async () => {
     try {
-      const pedagogo = await FirestoreService.getById<User>(id);
-      if (pedagogo) {
-        setFormData({
-          name: pedagogo.name,
-          email: pedagogo.email,
-        });
-      }
+      const data = await FirestoreService.query<User>(DOC_TYPES.USER, [
+        whereEqual('role', 'pedagogo'),
+      ]);
+      setPedagogos(data);
     } catch (error) {
-      console.error('Erro ao carregar pedagogo:', error);
+      console.error('Erro ao carregar pedagogos:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSaving(true);
-
+  const toggleStatus = async (pedagogo: User) => {
     try {
-      await FirestoreService.update(id, {
-        name: formData.name,
-        email: formData.email,
+      await FirestoreService.update(pedagogo.id, {
+        active: !pedagogo.active,
       });
-      router.push('/admin/pedagogos');
-    } catch (err: any) {
-      setError(err.message || 'Erro ao atualizar pedagogo');
+      loadPedagogos();
+    } catch (error) {
+      console.error('Erro ao alterar status do pedagogo:', error);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteModal.pedagogo) return;
+    setDeleting(true);
+    try {
+      await FirestoreService.delete(deleteModal.pedagogo.id);
+      setDeleteModal({ open: false, pedagogo: null });
+      loadPedagogos();
+    } catch (error) {
+      console.error('Erro ao excluir pedagogo:', error);
     } finally {
-      setSaving(false);
+      setDeleting(false);
     }
   };
 
@@ -66,41 +70,104 @@ export default function EditarPedagogoPage() {
 
   return (
     <DashboardLayout>
-      <PageHeader title="Editar Pedagogo" description="Atualize os dados do pedagogo" />
+      <PageHeader
+        title="Gerenciar Pedagogos"
+        description="Cadastre, edite e gerencie os pedagogos do sistema"
+        actions={
+          <Button onClick={() => router.push('/admin/pedagogos/novo')}>
+            Novo Pedagogo
+          </Button>
+        }
+      />
 
-      <Card className="max-w-2xl">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <Input
-            label="Nome Completo"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="Nome do pedagogo"
-            required
-          />
-
-          <Input
-            label="E-mail"
-            type="email"
-            value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            placeholder="email@exemplo.com"
-            required
-          />
-
-          {error && (
-            <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>
-          )}
-
-          <div className="flex justify-end space-x-2">
-            <Button type="button" variant="outline" onClick={() => router.back()}>
-              Cancelar
+      {pedagogos.length === 0 ? (
+        <EmptyState
+          title="Nenhum pedagogo cadastrado"
+          description="Cadastre o primeiro pedagogo para gerenciar as atividades da instituição."
+          action={
+            <Button onClick={() => router.push('/admin/pedagogos/novo')}>
+              Cadastrar Pedagogo
             </Button>
-            <Button type="submit" loading={saving}>
-              Salvar
-            </Button>
-          </div>
-        </form>
-      </Card>
+          }
+        />
+      ) : (
+        <Card>
+          <Table>
+            <TableHeader>
+              <tr>
+                <TableHead>Nome</TableHead>
+                <TableHead>E-mail</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Ações</TableHead>
+              </tr>
+            </TableHeader>
+            <TableBody>
+              {pedagogos.map((pedagogo) => (
+                <TableRow key={pedagogo.id}>
+                  <TableCell>
+                    <div className="font-medium text-gray-900">{pedagogo.name}</div>
+                  </TableCell>
+                  <TableCell>{pedagogo.email}</TableCell>
+                  <TableCell>
+                    <Badge variant={pedagogo.active ? 'success' : 'danger'}>
+                      {pedagogo.active ? 'Ativo' : 'Inativo'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/admin/pedagogos/${pedagogo.id}/editar`)}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleStatus(pedagogo)}
+                      >
+                        {pedagogo.active ? 'Bloquear' : 'Ativar'}
+                      </Button>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => setDeleteModal({ open: true, pedagogo })}
+                      >
+                        Excluir
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
+
+      {/* Modal de confirmação de exclusão */}
+      <Modal
+        isOpen={deleteModal.open}
+        onClose={() => setDeleteModal({ open: false, pedagogo: null })}
+        title="Confirmar Exclusão"
+      >
+        <p className="text-gray-600">
+          Tem certeza que deseja excluir o pedagogo{' '}
+          <strong className="text-gray-900">{deleteModal.pedagogo?.name}</strong>?
+          Esta ação não poderá ser desfeita.
+        </p>
+        <div className="mt-6 flex justify-end space-x-2">
+          <Button
+            variant="outline"
+            onClick={() => setDeleteModal({ open: false, pedagogo: null })}
+          >
+            Cancelar
+          </Button>
+          <Button variant="danger" loading={deleting} onClick={handleDelete}>
+            Excluir
+          </Button>
+        </div>
+      </Modal>
     </DashboardLayout>
   );
 }

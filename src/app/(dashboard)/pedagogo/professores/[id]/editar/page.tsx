@@ -10,7 +10,12 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { PageLoading } from '@/components/ui/Loading';
 import { FirestoreService, DOC_TYPES, whereEqual } from '@/lib/services/firestore';
-import { User, Turma } from '@/types';
+import { User, Turma, ConfiguracaoGlobal } from '@/types';
+
+const defaultDisciplinas = [
+  'Português', 'Matemática', 'Ciências', 'História', 'Geografia',
+  'Inglês', 'Educação Física', 'Artes', 'Música', 'Informática', 'Educação Digital'
+];
 
 export default function EditarProfessorPage() {
   const router = useRouter();
@@ -19,6 +24,7 @@ export default function EditarProfessorPage() {
   const id = params.id as string;
 
   const [turmas, setTurmas] = useState<Turma[]>([]);
+  const [disciplinasOptions, setDisciplinasOptions] = useState<string[]>(defaultDisciplinas);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -30,20 +36,19 @@ export default function EditarProfessorPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const disciplinasOptions = ['Portugues', 'Matematica', 'Ciencias', 'Historia', 'Geografia', 'Ingles', 'Educacao Fisica', 'Artes', 'Musica', 'Informatica', 'Educacao Digital', 'Educação Digital'];
-
   useEffect(() => {
     if (user) loadData();
   }, [id, user]);
 
   const loadData = async () => {
     try {
-      const [professorData, turmasData] = await Promise.all([
+      const [professorData, turmasData, configs] = await Promise.all([
         FirestoreService.getById<User>(id),
         FirestoreService.query<Turma>(DOC_TYPES.TURMA, [
           whereEqual('pedagogoId', user!.id),
           whereEqual('active', true),
         ]),
+        FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO),
       ]);
 
       if (professorData) {
@@ -57,6 +62,10 @@ export default function EditarProfessorPage() {
         setTurmaIdsAntigos(tIds);
       }
       setTurmas(turmasData);
+
+      if (configs.length > 0 && configs[0].disciplinas && configs[0].disciplinas.length > 0) {
+        setDisciplinasOptions(configs[0].disciplinas);
+      }
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
     } finally {

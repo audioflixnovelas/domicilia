@@ -12,14 +12,19 @@ import Select from '@/components/ui/Select';
 import { FirestoreService, DOC_TYPES, whereEqual } from '@/lib/services/firestore';
 import { AuthService } from '@/lib/services/auth';
 import { emailService } from '@/lib/services/email';
-import { Turma, Aluno, User } from '@/types';
+import { Turma, Aluno, User, ConfiguracaoGlobal } from '@/types';
 import { generateId } from '@/lib/utils';
+
+const defaultDisciplinas = [
+  'Português', 'Matemática', 'Ciências', 'História', 'Geografia',
+  'Inglês', 'Educação Física', 'Artes', 'Música', 'Informática', 'Educação Digital'
+];
 
 export default function NovoProfessorPage() {
   const router = useRouter();
   const { user } = useAuth();
   const [turmas, setTurmas] = useState<Turma[]>([]);
-  const [alunos, setAlunos] = useState<Aluno[]>([]);
+  const [disciplinasOptions, setDisciplinasOptions] = useState<string[]>(defaultDisciplinas);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -30,24 +35,27 @@ export default function NovoProfessorPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const disciplinasOptions = [
-    'Português', 'Matemática', 'Ciências', 'História', 'Geografia',
-    'Inglês', 'Educação Física', 'Artes', 'Música', 'Informática', 'Educação Digital', 'Educacao Digital'
-  ];
-
   useEffect(() => {
-    if (user) loadTurmas();
+    if (user) loadInitialData();
   }, [user]);
 
-  const loadTurmas = async () => {
+  const loadInitialData = async () => {
     try {
-      const data = await FirestoreService.query<Turma>(DOC_TYPES.TURMA, [
-        whereEqual('pedagogoId', user!.id),
-        whereEqual('active', true),
+      const [turmasData, configs] = await Promise.all([
+        FirestoreService.query<Turma>(DOC_TYPES.TURMA, [
+          whereEqual('pedagogoId', user!.id),
+          whereEqual('active', true),
+        ]),
+        FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO),
       ]);
-      setTurmas(data);
+
+      setTurmas(turmasData);
+
+      if (configs.length > 0 && configs[0].disciplinas && configs[0].disciplinas.length > 0) {
+        setDisciplinasOptions(configs[0].disciplinas);
+      }
     } catch (error) {
-      console.error('Erro ao carregar turmas:', error);
+      console.error('Erro ao carregar dados:', error);
     }
   };
 

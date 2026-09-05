@@ -1,155 +1,195 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
+import { Badge } from '@/components/ui/Badge';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { PageLoading } from '@/components/ui/Loading';
+import { Modal } from '@/components/ui/Modal';
 import { FirestoreService, DOC_TYPES, whereEqual } from '@/lib/services/firestore';
 import { Turma, User } from '@/types';
 
-export default function EditarTurmaPage() {
+export default function TurmasPage() {
   const router = useRouter();
-  const params = useParams();
   const { user } = useAuth();
-  const id = params.id as string;
-
+  const [turmas, setTurmas] = useState<Turma[]>([]);
   const [professores, setProfessores] = useState<User[]>([]);
-  const [formData, setFormData] = useState({
-    nome: '',
-    ano: '',
-    serie: '',
-    professorIds: [] as string[],
-  });
-  const [professorIdsAntigos, setProfessorIdsAntigos] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [deleteModal, setDeleteModal] = useState<{ open: boolean; turma: Turma | null }>({
+    open: false,
+    turma: null,
+  });
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (user) loadData();
-  }, [id, user]);
+  }, [user]);
 
   const loadData = async () => {
     try {
-      const [turmaData, allProfessores] = await Promise.all([
-        FirestoreService.getById<Turma>(id),
+      const [turmasData, professoresData] = await Promise.all([
+        FirestoreService.query<Turma>(DOC_TYPES.TURMA, [
+          whereEqual('pedagogoId', user!.id),
+        ]),
         FirestoreService.query<User>(DOC_TYPES.USER, [
           whereEqual('role', 'professor'),
-          whereEqual('active', true),
         ]),
       ]);
-      const professoresData = allProfessores.filter((p) =>
-        p.pedagogoId === user!.id ||
-        (p.pedagogoIds || []).includes(user!.id)
-      );
 
-      if (turmaData) {
-        const profIds = turmaData.professorIds || [];
-        setFormData({
-          nome: turmaData.nome,
-          ano: turmaData.ano,
-          serie: turmaData.serie,
-          professorIds: profIds,
-        });
-        setProfessorIdsAntigos(profIds);
-      }
+      setTurmas(turmasData);
       setProfessores(professoresData);
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
+      console.error('Erro ao carregar turmas:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSaving(true);
-
+  const toggleStatus = async (turma: Turma) => {
     try {
-      await FirestoreService.update(id, {
-        nome: formData.nome,
-        ano: formData.ano,
-        serie: formData.serie,
-        professorIds: formData.professorIds,
+      await FirestoreService.update(turma.id, {
+        active: !turma.active,
       });
-
-      // Remove turma dos professores removidos
-      for (const profId of professorIdsAntigos) {
-        if (!formData.professorIds.includes(profId)) {
-          const prof = professores.find((p) => p.id === profId);
-          if (prof) {
-            const turmasAtualizadas = (prof.turmaIds || []).filter((t) => t !== id);
-            await FirestoreService.update(profId, { turmaIds: turmasAtualizadas });
-          }
-        }
-      }
-
-      // Adiciona turma aos professores adicionados
-      for (const profId of formData.professorIds) {
-        if (!professorIdsAntigos.includes(profId)) {
-          const prof = professores.find((p) => p.id === profId);
-          if (prof) {
-            const turmasAtuais = prof.turmaIds || [];
-            if (!turmasAtuais.includes(id)) {
-              await FirestoreService.update(profId, { turmaIds: [...turmasAtuais, id] });
-            }
-          }
-        }
-      }
-
-      router.push('/pedagogo/turmas');
-    } catch (err: any) {
-      setError(err.message || 'Erro ao atualizar turma');
-    } finally {
-      setSaving(false);
+      loadData();
+    } catch (error) {
+      console.error('Erro ao alterar status da turma:', error);
     }
   };
 
-  const toggleProfessor = (professorId: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      professorIds: prev.professorIds.includes(professorId)
-        ? prev.professorIds.filter((id) => id !== professorId)
-        : [...prev.professorIds, professorId],
-    }));
+  const handleDelete = async () => {
+    if (!deleteModal.turma) return;
+    setDeleting(true);
+    try {
+      await FirestoreService.delete(deleteModal.turma.id);
+      setDeleteModal({ open: false, turma: null });
+      loadData();
+    } catch (error) {
+      console.error('Erro ao excluir turma:', error);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const getProfessoresNomes = (professorIds?: string[]) => {
+    if (!professorIds || professorIds.length === 0) return '-';
+    return professores
+      .filter((p) => professorIds.includes(p.id))
+      .map((p) => p.name)
+      .join(', ') || '-';
   };
 
   if (loading) return <PageLoading />;
 
   return (
     <DashboardLayout>
-      <PageHeader title="Editar Turma" description="Atualize os dados da turma" />
-      <Card className="max-w-2xl">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <Input label="Nome da Turma" value={formData.nome} onChange={(e) => setFormData({ ...formData, nome: e.target.value })} required />
-          <Input label="Ano" value={formData.ano} onChange={(e) => setFormData({ ...formData, ano: e.target.value })} required />
-          <Input label="Serie" value={formData.serie} onChange={(e) => setFormData({ ...formData, serie: e.target.value })} required />
+      <PageHeader
+        title="Gerenciar Turmas"
+        description="Cadastre, edite e gerencie as turmas sob sua coordenação"
+        actions={
+          <Button onClick={() => router.push('/pedagogo/turmas/nova')}>
+            Nova Turma
+          </Button>
+        }
+      />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Professores</label>
-            <div className="grid grid-cols-2 gap-2">
-              {professores.map((professor) => (
-                <label key={professor.id} className="flex items-center space-x-2 p-2 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer">
-                  <input type="checkbox" checked={formData.professorIds.includes(professor.id)} onChange={() => toggleProfessor(professor.id)} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                  <span className="text-sm text-gray-700">{professor.name}</span>
-                </label>
+      {turmas.length === 0 ? (
+        <EmptyState
+          title="Nenhuma turma cadastrada"
+          description="Cadastre turmas para vincular alunos e professores."
+          action={
+            <Button onClick={() => router.push('/pedagogo/turmas/nova')}>
+              Cadastrar Turma
+            </Button>
+          }
+        />
+      ) : (
+        <Card>
+          <Table>
+            <TableHeader>
+              <tr>
+                <TableHead>Nome</TableHead>
+                <TableHead>Ano</TableHead>
+                <TableHead>Série</TableHead>
+                <TableHead>Professores</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Ações</TableHead>
+              </tr>
+            </TableHeader>
+            <TableBody>
+              {turmas.map((turma) => (
+                <TableRow key={turma.id}>
+                  <TableCell>
+                    <div className="font-medium text-gray-900">{turma.nome}</div>
+                  </TableCell>
+                  <TableCell>{turma.ano}</TableCell>
+                  <TableCell>{turma.serie}</TableCell>
+                  <TableCell>{getProfessoresNomes(turma.professorIds)}</TableCell>
+                  <TableCell>
+                    <Badge variant={turma.active ? 'success' : 'danger'}>
+                      {turma.active ? 'Ativa' : 'Inativa'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/pedagogo/turmas/${turma.id}/editar`)}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleStatus(turma)}
+                      >
+                        {turma.active ? 'Desabilitar' : 'Reabilitar'}
+                      </Button>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => setDeleteModal({ open: true, turma })}
+                      >
+                        Excluir
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
               ))}
-            </div>
-          </div>
+            </TableBody>
+          </Table>
+        </Card>
+      )}
 
-          {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
-          <div className="flex justify-end space-x-2">
-            <Button type="button" variant="outline" onClick={() => router.back()}>Cancelar</Button>
-            <Button type="submit" loading={saving}>Salvar</Button>
-          </div>
-        </form>
-      </Card>
+      {/* Modal de confirmação de exclusão */}
+      <Modal
+        isOpen={deleteModal.open}
+        onClose={() => setDeleteModal({ open: false, turma: null })}
+        title="Confirmar Exclusão"
+      >
+        <p className="text-gray-600">
+          Tem certeza que deseja excluir a turma{' '}
+          <strong className="text-gray-900">{deleteModal.turma?.nome}</strong>?
+          Esta ação não poderá ser desfeita.
+        </p>
+        <div className="mt-6 flex justify-end space-x-2">
+          <Button
+            variant="outline"
+            onClick={() => setDeleteModal({ open: false, turma: null })}
+          >
+            Cancelar
+          </Button>
+          <Button variant="danger" loading={deleting} onClick={handleDelete}>
+            Excluir
+          </Button>
+        </div>
+      </Modal>
     </DashboardLayout>
   );
 }
