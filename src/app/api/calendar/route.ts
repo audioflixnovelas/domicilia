@@ -80,17 +80,35 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Código de autorização ausente.' }, { status: 400 });
       }
 
-      const oauth2Client = new google.auth.OAuth2(cId, cSecret, redirectUri);
-      const { tokens } = await oauth2Client.getToken(code);
+      if (!cId || !cSecret) {
+        return NextResponse.json({
+          error: 'Credenciais do Google (Client ID / Client Secret) não configuradas. Acesse Admin -> Configurações para preenchê-las.',
+        }, { status: 400 });
+      }
 
-      const oauthTokensJson = JSON.stringify({
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
-        client_id: cId,
-        client_secret: cSecret,
-      });
+      try {
+        const oauth2Client = new google.auth.OAuth2(cId, cSecret, redirectUri);
+        const { tokens } = await oauth2Client.getToken(code);
 
-      return NextResponse.json({ success: true, oauthTokensJson });
+        const oauthTokensJson = JSON.stringify({
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          client_id: cId,
+          client_secret: cSecret,
+        });
+
+        return NextResponse.json({ success: true, oauthTokensJson });
+      } catch (err: any) {
+        const errStr = String(err?.message || err?.response?.data?.error || err);
+        if (errStr.includes('invalid_client')) {
+          return NextResponse.json({
+            error: 'Credenciais do Google incorretas (invalid_client). Verifique se o Client ID e o Client Secret informados nas Configurações do Sistema são válidos e foram criados no Google Cloud Console.',
+          }, { status: 400 });
+        }
+        return NextResponse.json({
+          error: `Erro ao obter autorização do Google: ${errStr}`,
+        }, { status: 500 });
+      }
     }
 
     // Ação 3: Criar evento no Google Agenda
