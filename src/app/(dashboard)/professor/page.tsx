@@ -24,6 +24,7 @@ function ProfessorDashboardContent() {
   const [enviosPendentes, setEnviosPendentes] = useState<Envio[]>([]);
   const [globalConfig, setGlobalConfig] = useState<ConfiguracaoGlobal | null>(null);
   const [oauthLoading, setOauthLoading] = useState(false);
+  const [oauthNotice, setOauthNotice] = useState('');
 
   useEffect(() => {
     if (user) loadDashboardData();
@@ -83,29 +84,44 @@ function ProfessorDashboardContent() {
 
   const handleOAuthCallback = async (code: string) => {
     try {
+      setOauthLoading(true);
+      setOauthNotice('Conectando e salvando autorização do Google Agenda...');
+
       const redirectUri = window.location.origin + '/professor';
+
+      const configs = await FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO);
+      const configToUse = configs.length > 0 ? configs[0] : globalConfig;
+
       const res = await fetch('/api/calendar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'callback',
           code,
-          clientId: globalConfig?.googleOAuthClientId,
-          clientSecret: globalConfig?.googleOAuthClientSecret,
+          clientId: configToUse?.googleOAuthClientId,
+          clientSecret: configToUse?.googleOAuthClientSecret,
           redirectUri,
         }),
       });
 
       const data = await res.json();
-      if (data.oauthTokensJson && globalConfig?.id) {
-        await FirestoreService.update(globalConfig.id, {
-          googleOAuthTokensJson: data.oauthTokensJson,
-        });
-        alert('Conta Google vinculada com sucesso ao DomicilIA!');
+      if (data.oauthTokensJson) {
+        if (configToUse?.id) {
+          await FirestoreService.update(configToUse.id, {
+            googleOAuthTokensJson: data.oauthTokensJson,
+          });
+        }
+        setOauthNotice('✅ Conta Google vinculada com sucesso ao DomicilIA!');
+        setTimeout(() => setOauthNotice(''), 5000);
         router.replace('/professor');
+      } else {
+        setOauthNotice(`❌ Erro no vínculo: ${data.error || 'Falha ao obter autorização do Google.'}`);
       }
     } catch (err) {
       console.error('Erro no callback OAuth:', err);
+      setOauthNotice('❌ Erro de conexão ao vincular a conta do Google.');
+    } finally {
+      setOauthLoading(false);
     }
   };
 
@@ -177,6 +193,12 @@ function ProfessorDashboardContent() {
           </div>
         }
       />
+
+      {oauthNotice && (
+        <div className="mb-6 p-4 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-sm font-medium">
+          {oauthNotice}
+        </div>
+      )}
 
       {/* Turmas do Professor */}
       <div className="mb-8">

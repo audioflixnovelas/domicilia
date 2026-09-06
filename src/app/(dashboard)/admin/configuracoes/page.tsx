@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -17,15 +18,26 @@ const defaultDisciplinas = [
   'Inglês', 'Educação Física', 'Artes', 'Música', 'Informática', 'Educação Digital'
 ];
 
-export default function ConfiguracoesAdminPage() {
+function ConfiguracoesAdminContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [config, setConfig] = useState<ConfiguracaoGlobal | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [oauthLoading, setOauthLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [oauthNotice, setOauthNotice] = useState('');
   const [novaDisciplina, setNovaDisciplina] = useState('');
 
   useEffect(() => { loadConfig(); }, []);
+
+  useEffect(() => {
+    // Processa callback OAuth se reencaminhado com 'code'
+    const code = searchParams.get('code');
+    if (code) {
+      handleOAuthCallback(code);
+    }
+  }, [searchParams]);
 
   const loadConfig = async () => {
     try {
@@ -74,6 +86,49 @@ export default function ConfiguracoesAdminPage() {
       console.error('Erro ao carregar configuracoes:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOAuthCallback = async (code: string) => {
+    try {
+      setOauthLoading(true);
+      setOauthNotice('Processando autorização do Google Agenda...');
+
+      const redirectUri = window.location.origin + '/admin/configuracoes';
+      const configs = await FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO);
+      const configToUse = configs.length > 0 ? configs[0] : config;
+
+      const res = await fetch('/api/calendar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'callback',
+          code,
+          clientId: configToUse?.googleOAuthClientId,
+          clientSecret: configToUse?.googleOAuthClientSecret,
+          redirectUri,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.oauthTokensJson) {
+        if (configToUse?.id) {
+          await FirestoreService.update(configToUse.id, {
+            googleOAuthTokensJson: data.oauthTokensJson,
+          });
+          setConfig({ ...configToUse, googleOAuthTokensJson: data.oauthTokensJson });
+        }
+        setOauthNotice('✅ Conta Google vinculada com sucesso ao DomicilIA!');
+        setTimeout(() => setOauthNotice(''), 5000);
+        router.replace('/admin/configuracoes');
+      } else {
+        setOauthNotice(`❌ Erro no vínculo: ${data.error || 'Falha ao obter tokens de autorização.'}`);
+      }
+    } catch (err) {
+      console.error('Erro no callback OAuth:', err);
+      setOauthNotice('❌ Erro ao comunicar com o servidor de autenticação.');
+    } finally {
+      setOauthLoading(false);
     }
   };
 
@@ -193,6 +248,11 @@ export default function ConfiguracoesAdminPage() {
       {success && (
         <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
           Configurações salvas com sucesso!
+        </div>
+      )}
+      {oauthNotice && (
+        <div className="mb-6 bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg font-medium text-sm">
+          {oauthNotice}
         </div>
       )}
       <div className="space-y-6">
@@ -472,5 +532,13 @@ export default function ConfiguracoesAdminPage() {
         </Card>
       </div>
     </DashboardLayout>
+  );
+}
+
+export default function ConfiguracoesAdminPage() {
+  return (
+    <Suspense fallback={<PageLoading />}>
+      <ConfiguracoesAdminContent />
+    </Suspense>
   );
 }
