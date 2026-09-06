@@ -49,8 +49,24 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { action, clientId, clientSecret, redirectUri, code, calendarId, summary, description, startDate, endDate, attendees, credentialsJson, oauthTokens } = body;
 
-    // Ação 1: Obter URL de autorização OAuth
+    const pythonBackendUrl = process.env.PYTHON_BACKEND_URL || 'http://127.0.0.1:5001';
+
+    // Tenta primeiro via backend Python
     if (action === 'get_auth_url') {
+      try {
+        const pyRes = await fetch(`${pythonBackendUrl}/auth/url`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientId, clientSecret, redirectUri }),
+        });
+        if (pyRes.ok) {
+          const pyData = await pyRes.json();
+          return NextResponse.json(pyData);
+        }
+      } catch {
+        // Fallback Node
+      }
+
       const cId = clientId || process.env.GOOGLE_CLIENT_ID;
       const cSecret = clientSecret || process.env.GOOGLE_CLIENT_SECRET;
 
@@ -71,8 +87,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, authUrl });
     }
 
-    // Ação 2: Callback do OAuth (trocar código por tokens)
+    // Callback do OAuth (trocar código por tokens)
     if (action === 'callback') {
+      try {
+        const pyRes = await fetch(`${pythonBackendUrl}/auth/callback`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, clientId, clientSecret, redirectUri }),
+        });
+        if (pyRes.ok) {
+          const pyData = await pyRes.json();
+          return NextResponse.json(pyData);
+        }
+      } catch {
+        // Fallback Node
+      }
+
       const cId = clientId || process.env.GOOGLE_CLIENT_ID;
       const cSecret = clientSecret || process.env.GOOGLE_CLIENT_SECRET;
 
@@ -111,11 +141,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Ação 3: Criar evento no Google Agenda
+    // Criar evento no Google Agenda
+    try {
+      const pyRes = await fetch(`${pythonBackendUrl}/events/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ calendarId, summary, description, startDate, endDate, attendees, credentialsJson, oauthTokens }),
+      });
+      if (pyRes.ok) {
+        const pyData = await pyRes.json();
+        return NextResponse.json(pyData);
+      }
+    } catch {
+      // Fallback Node
+    }
+
     const calendar = getCalendarClient(credentialsJson, oauthTokens);
 
     if (!calendar) {
-      // Se não houver credencial configurada no Vercel/sistema, retorna status ok amigável
       return NextResponse.json({
         success: true,
         mock_success: true,
