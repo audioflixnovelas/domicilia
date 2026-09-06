@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Button from '@/components/ui/Button';
@@ -37,7 +38,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 px-4 py-8">
       <Card variant="elevated" className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-blue-600">DomicilIA</CardTitle>
@@ -52,6 +53,16 @@ export default function LoginPage() {
           </form>
         </CardContent>
       </Card>
+
+      <footer className="mt-6 text-center text-xs text-gray-500 space-x-4">
+        <Link href="/politica-de-privacidade" className="hover:text-blue-600 underline transition-colors">
+          Política de Privacidade
+        </Link>
+        <span>•</span>
+        <Link href="/termos-de-uso" className="hover:text-blue-600 underline transition-colors">
+          Termos de Uso
+        </Link>
+      </footer>
     </div>
   );
 }
