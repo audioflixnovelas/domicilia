@@ -119,14 +119,16 @@ export default function NovoAlunoPage() {
               await emailService.sendThursdayEmail(prof.name, prof.email);
             }
 
-            // Sincroniza com Google Agenda via backend Python
+            // Sincroniza com Google Agenda via backend Python diretamente
             try {
-              await fetch('/api/calendar', {
+              const backendUrl = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://127.0.0.1:5001';
+              await fetch(`${backendUrl}/events/create`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   calendarId: globalConfig?.googleCalendarId || 'primary',
                   credentialsJson: globalConfig?.googleCredentialsJson,
+                  oauthTokens: prof.googleOAuthTokensJson || globalConfig?.googleOAuthTokensJson,
                   summary: `Atividade Domiciliar - ${formData.nome}`,
                   description: `Prazo de Atividade Domiciliar para o aluno ${formData.nome} na turma ${turma?.nome || ''}.`,
                   startDate: formData.dataInicio || getCurrentDate(),

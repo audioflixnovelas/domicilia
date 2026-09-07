@@ -92,11 +92,11 @@ function ProfessorDashboardContent() {
       const configs = await FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO);
       const configToUse = configs.length > 0 ? configs[0] : globalConfig;
 
-      const res = await fetch('/api/calendar', {
+      const backendUrl = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://127.0.0.1:5001';
+      const res = await fetch(`${backendUrl}/auth/callback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'callback',
           code,
           clientId: configToUse?.googleOAuthClientId,
           clientSecret: configToUse?.googleOAuthClientSecret,
@@ -130,11 +130,11 @@ function ProfessorDashboardContent() {
     try {
       const redirectUri = window.location.origin + '/professor';
 
-      const res = await fetch('/api/calendar', {
+      const backendUrl = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://127.0.0.1:5001';
+      const res = await fetch(`${backendUrl}/auth/url`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'get_auth_url',
           clientId: globalConfig?.googleOAuthClientId,
           clientSecret: globalConfig?.googleOAuthClientSecret,
           redirectUri,
