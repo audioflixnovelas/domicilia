@@ -67,8 +67,8 @@ def get_auth_url():
     Gera a URL de consentimento do Google OAuth 2.0 para vínculo da conta Google Agenda.
     """
     data = request.json or {}
-    client_id = data.get('clientId') or os.environ.get('GOOGLE_CLIENT_ID')
-    client_secret = data.get('clientSecret') or os.environ.get('GOOGLE_CLIENT_SECRET')
+    client_id = (data.get('clientId') or os.environ.get('GOOGLE_CLIENT_ID') or '').strip()
+    client_secret = (data.get('clientSecret') or os.environ.get('GOOGLE_CLIENT_SECRET') or '').strip()
     redirect_uri = data.get('redirectUri') or os.environ.get('GOOGLE_REDIRECT_URI', 'http://localhost:3000/admin/configuracoes')
 
     if not client_id or not client_secret:
@@ -102,8 +102,8 @@ def oauth_callback():
     """
     data = request.json or {}
     code = data.get('code')
-    client_id = data.get('clientId') or os.environ.get('GOOGLE_CLIENT_ID')
-    client_secret = data.get('clientSecret') or os.environ.get('GOOGLE_CLIENT_SECRET')
+    client_id = (data.get('clientId') or os.environ.get('GOOGLE_CLIENT_ID') or '').strip()
+    client_secret = (data.get('clientSecret') or os.environ.get('GOOGLE_CLIENT_SECRET') or '').strip()
     redirect_uri = data.get('redirectUri') or os.environ.get('GOOGLE_REDIRECT_URI', 'http://localhost:3000/admin/configuracoes')
 
     if not code:

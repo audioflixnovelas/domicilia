@@ -51,13 +51,16 @@ export async function POST(request: NextRequest) {
 
     const pythonBackendUrl = process.env.PYTHON_BACKEND_URL || 'http://127.0.0.1:5001';
 
+    const cleanClientId = (clientId || process.env.GOOGLE_CLIENT_ID || '').trim();
+    const cleanClientSecret = (clientSecret || process.env.GOOGLE_CLIENT_SECRET || '').trim();
+
     // Tenta primeiro via backend Python
     if (action === 'get_auth_url') {
       try {
         const pyRes = await fetch(`${pythonBackendUrl}/auth/url`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clientId, clientSecret, redirectUri }),
+          body: JSON.stringify({ clientId: cleanClientId, clientSecret: cleanClientSecret, redirectUri }),
         });
         if (pyRes.ok) {
           const pyData = await pyRes.json();
@@ -67,17 +70,14 @@ export async function POST(request: NextRequest) {
         // Fallback Node
       }
 
-      const cId = clientId || process.env.GOOGLE_CLIENT_ID;
-      const cSecret = clientSecret || process.env.GOOGLE_CLIENT_SECRET;
-
-      if (!cId || !cSecret) {
+      if (!cleanClientId || !cleanClientSecret) {
         return NextResponse.json(
           { error: 'Client ID e Client Secret do Google OAuth são necessários.' },
           { status: 400 }
         );
       }
 
-      const oauth2Client = new google.auth.OAuth2(cId, cSecret, redirectUri);
+      const oauth2Client = new google.auth.OAuth2(cleanClientId, cleanClientSecret, redirectUri);
       const authUrl = oauth2Client.generateAuthUrl({
         access_type: 'offline',
         scope: SCOPES,
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
         const pyRes = await fetch(`${pythonBackendUrl}/auth/callback`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code, clientId, clientSecret, redirectUri }),
+          body: JSON.stringify({ code, clientId: cleanClientId, clientSecret: cleanClientSecret, redirectUri }),
         });
         if (pyRes.ok) {
           const pyData = await pyRes.json();
@@ -103,28 +103,25 @@ export async function POST(request: NextRequest) {
         // Fallback Node
       }
 
-      const cId = clientId || process.env.GOOGLE_CLIENT_ID;
-      const cSecret = clientSecret || process.env.GOOGLE_CLIENT_SECRET;
-
       if (!code) {
         return NextResponse.json({ error: 'Código de autorização ausente.' }, { status: 400 });
       }
 
-      if (!cId || !cSecret) {
+      if (!cleanClientId || !cleanClientSecret) {
         return NextResponse.json({
           error: 'Credenciais do Google (Client ID / Client Secret) não configuradas. Acesse Admin -> Configurações para preenchê-las.',
         }, { status: 400 });
       }
 
       try {
-        const oauth2Client = new google.auth.OAuth2(cId, cSecret, redirectUri);
+        const oauth2Client = new google.auth.OAuth2(cleanClientId, cleanClientSecret, redirectUri);
         const { tokens } = await oauth2Client.getToken(code);
 
         const oauthTokensJson = JSON.stringify({
           access_token: tokens.access_token,
           refresh_token: tokens.refresh_token,
-          client_id: cId,
-          client_secret: cSecret,
+          client_id: cleanClientId,
+          client_secret: cleanClientSecret,
         });
 
         return NextResponse.json({ success: true, oauthTokensJson });
