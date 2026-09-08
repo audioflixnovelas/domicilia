@@ -81,18 +81,17 @@ class ResendEmailService implements EmailService {
 
   async sendWelcome(user: User, password: string): Promise<boolean> {
     const html = `
-      <h2>Bem-vindo ao Sistema de Atividades Domiciliares!</h2>
-      <p>OLA <strong>${user.name}</strong>,</p>
-      <p>Voce foi cadastrado no sistema. Aqui estao seus dados de acesso:</p>
-      <ul>
-        <li><strong>E-mail:</strong> ${user.email}</li>
-        <li><strong>Senha temporaria:</strong> ${password}</li>
-      </ul>
-      <p>Acesse o sistema: <a href="${process.env.NEXT_PUBLIC_APP_URL}">${process.env.NEXT_PUBLIC_APP_URL}</a></p>
-      <p>Recomendamos que voce altere sua senha apos o primeiro acesso.</p>
-      <p>Atenciosamente,<br>Equipe de Tecnologia</p>
+      <p>Ol&aacute; ${user.name},</p>
+      <br>
+      <p>Voc&ecirc; foi cadastrado no sistema de atividades domiciliares do Col&eacute;gio Maluf. Aqui est&atilde;o seus dados de acesso:</p>
+      <br>
+      <p><strong>E-mail:</strong> ${user.email}</p>
+      <p><strong>Senha:</strong> ${password}</p>
+      <p>Acesse o sistema: <a href="https://domicilia.systematrix.com.br">https://domicilia.systematrix.com.br</a></p>
+      <br>
+      <p>Atenciosamente,<br>DomicilIA - Col&eacute;gio Maluf</p>
     `;
-    return this.send(user.email, 'Bem-vindo ao Sistema de Atividades Domiciliares', html);
+    return this.send(user.email, 'Bem-vindo ao Sistema de Atividades Domiciliares!', html);
   }
 
   async sendConfirmation(envio: Envio): Promise<boolean> {
