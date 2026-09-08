@@ -163,6 +163,7 @@ def create_event():
     description = data.get('description', '')
     start_date = data.get('startDate')
     end_date = data.get('endDate')
+    time_str = data.get('timeStr', '07:00')
     attendees_emails = data.get('attendees', [])
     credentials_json = data.get('credentialsJson')
     oauth_tokens = data.get('oauthTokens')
@@ -174,8 +175,12 @@ def create_event():
     if err:
         return jsonify({"error": err, "mock_success": True}), 200
 
-    start_datetime = f"{start_date}T09:00:00-03:00"
-    end_datetime = f"{end_date or start_date}T17:00:00-03:00"
+    # Define horário da manhã configurado (ex: 07:00:00)
+    hour, minute = time_str.split(':') if ':' in time_str else ('07', '00')
+    formatted_time = f"{int(hour):02d}:{int(minute):02d}:00"
+
+    start_datetime = f"{start_date}T{formatted_time}-03:00"
+    end_datetime = f"{end_date or start_date}T{formatted_time}-03:00"
 
     event_body = {
         'summary': summary,

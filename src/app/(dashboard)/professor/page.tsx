@@ -13,6 +13,7 @@ import { PageLoading } from '@/components/ui/Loading';
 import { FirestoreService, DOC_TYPES, whereEqual } from '@/lib/services/firestore';
 import { Turma, Aluno, Envio, ConfiguracaoGlobal } from '@/types';
 import { formatDate, isPeriodoAtivoAluno } from '@/lib/utils';
+import { syncAnnualRemindersForTeacher } from '@/lib/services/calendar-reminders';
 
 function ProfessorDashboardContent() {
   const router = useRouter();
@@ -109,12 +110,19 @@ function ProfessorDashboardContent() {
       const data = await res.json();
       if (data.oauthTokensJson) {
         if (user?.id) {
+          const updatedTeacher = { ...user, googleOAuthTokensJson: data.oauthTokensJson };
           await FirestoreService.update(user.id, {
             googleOAuthTokensJson: data.oauthTokensJson,
           });
+
+          // Sincroniza automaticamente todos os lembretes anuais na agenda deste professor
+          if (configToUse) {
+            setOauthNotice('✅ Conta vinculada! Gerando automaticamente todos os lembretes na sua Google Agenda...');
+            await syncAnnualRemindersForTeacher(updatedTeacher, configToUse);
+          }
         }
-        setOauthNotice('✅ Sua conta Google individual foi vinculada com sucesso ao DomicilIA!');
-        setTimeout(() => setOauthNotice(''), 5000);
+        setOauthNotice('✅ Sua conta Google individual foi vinculada e todas as datas do ano foram registradas na sua agenda!');
+        setTimeout(() => setOauthNotice(''), 6000);
         router.replace('/professor');
       } else {
         setOauthNotice(`❌ Erro no vínculo: ${data.error || 'Falha ao obter autorização do Google.'}`);

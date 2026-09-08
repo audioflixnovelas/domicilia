@@ -11,7 +11,8 @@ import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import { PageLoading } from '@/components/ui/Loading';
 import { FirestoreService, DOC_TYPES } from '@/lib/services/firestore';
-import { ConfiguracaoGlobal } from '@/types';
+import { ConfiguracaoGlobal, User } from '@/types';
+import { syncAnnualRemindersForTeacher } from '@/lib/services/calendar-reminders';
 
 const defaultDisciplinas = [
   'Português', 'Matemática', 'Ciências', 'História', 'Geografia',
@@ -28,6 +29,7 @@ function ConfiguracoesAdminContent() {
   const [success, setSuccess] = useState(false);
   const [oauthNotice, setOauthNotice] = useState('');
   const [novaDisciplina, setNovaDisciplina] = useState('');
+  const [generatingReminders, setGeneratingReminders] = useState(false);
   const processedCodeRef = useRef<string | null>(null);
 
   useEffect(() => { loadConfig(); }, []);
@@ -58,9 +60,9 @@ function ConfiguracoesAdminContent() {
           corPrincipal: '#3B82F6',
           disciplinas: defaultDisciplinas,
           diasLembrete: [15, 7, 4, 3, 2, 1, 0],
-          horarioLembrete: '09:00',
-          dataInicioLembretes: '',
-          dataFimLembretes: '',
+          horarioLembrete: '07:00',
+          dataInicioLembretes: '2026-09-10',
+          dataFimLembretes: '2026-12-16',
           diaInicialLembretes: 'quinta',
           prazoLimite: 30,
           prazoIA: 7,
@@ -398,6 +400,48 @@ function ConfiguracoesAdminContent() {
               value={config?.textoEmailLembrete || ''}
               onChange={(e) => setConfig({ ...config!, textoEmailLembrete: e.target.value })}
             />
+
+            <div className="pt-4 border-t border-gray-100">
+              <Button
+                type="button"
+                className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+                loading={generatingReminders}
+                onClick={async () => {
+                  if (!config) return;
+                  setGeneratingReminders(true);
+                  try {
+                    await saveConfigToFirestore(config);
+                    const users = await FirestoreService.getAllByType<User>(DOC_TYPES.USER);
+                    const professoresComGoogle = users.filter(
+                      (u) => u.role === 'professor' && Boolean(u.googleOAuthTokensJson)
+                    );
+
+                    if (professoresComGoogle.length === 0) {
+                      alert('Nenhum professor possui conta Google vinculada até o momento.');
+                      return;
+                    }
+
+                    let totalSucessos = 0;
+                    for (const prof of professoresComGoogle) {
+                      const res = await syncAnnualRemindersForTeacher(prof, config);
+                      totalSucessos += res.successCount;
+                    }
+
+                    alert(`Lembretes anuais criados com sucesso! Total de ${totalSucessos} eventos registrados nas agendas dos professores vinculados.`);
+                  } catch (err: any) {
+                    console.error('Erro ao gerar lembretes anuais:', err);
+                    alert(`Falha ao gerar lembretes: ${err.message || err}`);
+                  } finally {
+                    setGeneratingReminders(false);
+                  }
+                }}
+              >
+                📅 Gerar Lembretes Anuais em Todos os Professores
+              </Button>
+              <p className="text-xs text-gray-500 mt-2">
+                Este botão calcula todas as quintas e quartas intercaladas entre as datas de início e fim e cria automaticamente os lembretes de 07:00 da manhã no Google Agenda de todos os professores vinculados.
+              </p>
+            </div>
           </CardContent>
         </Card>
 
