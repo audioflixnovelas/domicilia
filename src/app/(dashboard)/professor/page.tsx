@@ -108,12 +108,12 @@ function ProfessorDashboardContent() {
 
       const data = await res.json();
       if (data.oauthTokensJson) {
-        if (configToUse?.id) {
-          await FirestoreService.update(configToUse.id, {
+        if (user?.id) {
+          await FirestoreService.update(user.id, {
             googleOAuthTokensJson: data.oauthTokensJson,
           });
         }
-        setOauthNotice('✅ Conta Google vinculada com sucesso ao DomicilIA!');
+        setOauthNotice('✅ Sua conta Google individual foi vinculada com sucesso ao DomicilIA!');
         setTimeout(() => setOauthNotice(''), 5000);
         router.replace('/professor');
       } else {
@@ -159,7 +159,7 @@ function ProfessorDashboardContent() {
 
   if (loading) return <PageLoading />;
 
-  const isLinked = Boolean(globalConfig?.googleOAuthTokensJson || globalConfig?.googleCredentialsJson);
+  const isLinked = Boolean(user?.googleOAuthTokensJson);
 
   return (
     <DashboardLayout>
