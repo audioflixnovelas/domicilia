@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -28,13 +28,15 @@ function ConfiguracoesAdminContent() {
   const [success, setSuccess] = useState(false);
   const [oauthNotice, setOauthNotice] = useState('');
   const [novaDisciplina, setNovaDisciplina] = useState('');
+  const processedCodeRef = useRef<string | null>(null);
 
   useEffect(() => { loadConfig(); }, []);
 
   useEffect(() => {
     // Processa callback OAuth se reencaminhado com 'code'
     const code = searchParams.get('code');
-    if (code) {
+    if (code && processedCodeRef.current !== code) {
+      processedCodeRef.current = code;
       handleOAuthCallback(code);
     }
   }, [searchParams]);

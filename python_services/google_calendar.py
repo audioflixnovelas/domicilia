@@ -2,7 +2,7 @@ import os
 import json
 import datetime
 import requests
-from urllib.parse import urlencode
+from urllib.parse import urlencode, unquote
 from flask import Flask, request, jsonify, redirect
 from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials
@@ -109,23 +109,14 @@ def oauth_callback():
     Troca o código de autorização do Google OAuth pelos tokens de acesso e refresh.
     """
     data = request.json or {}
-    code = data.get('code')
+    raw_code = data.get('code')
+    code = unquote(raw_code).strip() if raw_code else None
     client_id = (data.get('clientId') or os.environ.get('GOOGLE_CLIENT_ID') or '').strip()
     client_secret = (data.get('clientSecret') or os.environ.get('GOOGLE_CLIENT_SECRET') or '').strip()
     redirect_uri = data.get('redirectUri') or os.environ.get('GOOGLE_REDIRECT_URI', 'http://localhost:3000/admin/configuracoes')
 
     if not code:
         return jsonify({"error": "Código de autorização 'code' é obrigatório."}), 400
-
-    client_config = {
-        "web": {
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "redirect_uris": [redirect_uri]
-        }
-    }
 
     try:
         token_payload = {
@@ -141,6 +132,7 @@ def oauth_callback():
 
         if token_res.status_code != 200:
             error_desc = token_json.get('error_description') or token_json.get('error') or 'Falha ao trocar código por tokens'
+            print("Erro no token Google:", token_res.status_code, token_json)
             return jsonify({"error": f"Erro ao obter tokens do Google OAuth: {error_desc}"}), token_res.status_code
 
         token_data = {

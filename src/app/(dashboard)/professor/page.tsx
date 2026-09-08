@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -25,6 +25,7 @@ function ProfessorDashboardContent() {
   const [globalConfig, setGlobalConfig] = useState<ConfiguracaoGlobal | null>(null);
   const [oauthLoading, setOauthLoading] = useState(false);
   const [oauthNotice, setOauthNotice] = useState('');
+  const processedCodeRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (user) loadDashboardData();
@@ -33,7 +34,8 @@ function ProfessorDashboardContent() {
   useEffect(() => {
     // Processa callback OAuth se reencaminhado com 'code'
     const code = searchParams.get('code');
-    if (code) {
+    if (code && processedCodeRef.current !== code) {
+      processedCodeRef.current = code;
       handleOAuthCallback(code);
     }
   }, [searchParams]);
