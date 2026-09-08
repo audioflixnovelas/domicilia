@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { action, clientId, clientSecret, redirectUri, code, calendarId, summary, description, startDate, endDate, attendees, credentialsJson, oauthTokens } = body;
 
-    const pythonBackendUrl = process.env.PYTHON_BACKEND_URL || 'http://127.0.0.1:5001';
+    const pythonBackendUrl = process.env.PYTHON_BACKEND_URL || 'https://domicilia-maluf.squarecloud.app';
 
     const cleanClientId = (clientId || process.env.GOOGLE_CLIENT_ID || '').trim();
     const cleanClientSecret = (clientSecret || process.env.GOOGLE_CLIENT_SECRET || '').trim();

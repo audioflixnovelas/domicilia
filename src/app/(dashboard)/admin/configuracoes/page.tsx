@@ -98,7 +98,7 @@ function ConfiguracoesAdminContent() {
       const configs = await FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO);
       const configToUse = configs.length > 0 ? configs[0] : config;
 
-      const backendUrl = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://127.0.0.1:5001';
+      const backendUrl = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'https://domicilia-maluf.squarecloud.app';
       const res = await fetch(`${backendUrl}/auth/callback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -169,7 +169,7 @@ function ConfiguracoesAdminContent() {
 
       const redirectUri = window.location.origin + '/admin/configuracoes';
 
-      const backendUrl = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'http://127.0.0.1:5001';
+      const backendUrl = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'https://domicilia-maluf.squarecloud.app';
       const res = await fetch(`${backendUrl}/auth/url`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
