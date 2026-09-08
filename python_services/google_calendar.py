@@ -2,7 +2,7 @@ import os
 import json
 import datetime
 import requests
-import urllib.parse
+from urllib.parse import urlencode
 from flask import Flask, request, jsonify, redirect
 from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials
@@ -97,7 +97,7 @@ def get_auth_url():
             'prompt': 'consent',
             'include_granted_scopes': 'true'
         }
-        auth_url = f"https://accounts.google.com/o/oauth2/auth?{urllib.parse.urlencode(params)}"
+        auth_url = f"https://accounts.google.com/o/oauth2/auth?{urlencode(params)}"
         return jsonify({"authUrl": auth_url, "success": True})
     except Exception as e:
         return jsonify({"error": f"Erro ao gerar URL OAuth: {str(e)}"}), 500
