@@ -121,7 +121,7 @@ export default function NovoAlunoPage() {
 
             // Sincroniza com Google Agenda via backend Python diretamente
             try {
-              const backendUrl = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'https://domicilia-maluf.squarecloud.app';
+              const backendUrl = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'https://domicilia-maluf.squareweb.app';
               await fetch(`${backendUrl}/events/create`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
