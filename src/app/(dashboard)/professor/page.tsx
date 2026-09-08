@@ -297,14 +297,26 @@ function ProfessorDashboardContent() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Button
-                        size="sm"
-                        onClick={() =>
-                          router.push(`/professor/enviar?turmaId=${envio.turmaId}&alunoId=${envio.alunoId}`)
-                        }
-                      >
-                        Enviar Agora
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            router.push(`/professor/enviar?turmaId=${envio.turmaId}&alunoId=${envio.alunoId}`)
+                          }
+                        >
+                          Enviar Agora
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-purple-600 text-purple-700 hover:bg-purple-50"
+                          onClick={() =>
+                            router.push(`/professor/enviar?turmaId=${envio.turmaId}&alunoId=${envio.alunoId}&ai=true`)
+                          }
+                        >
+                          🤖 IA
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

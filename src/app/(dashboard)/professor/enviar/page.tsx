@@ -15,6 +15,10 @@ import { storageProvider, validateFile, generateStoragePath } from '@/lib/servic
 import { emailService } from '@/lib/services/email';
 import { Aluno, Turma, Envio, Historico, User, ConfiguracaoGlobal } from '@/types';
 import { getCurrentDate, getCurrentTime } from '@/lib/utils';
+import { generateActivityForStudent } from '@/lib/services/ai';
+import { Modal } from '@/components/ui/Modal';
+
+const seriesOptions = ['1ª série', '2ª série', '3ª série', '4ª série', '5ª série', '6ª série', '7ª série', '8ª série', '9ª série', 'Ensino Médio'];
 
 const defaultDisciplinas = [
   'Português', 'Matemática', 'Ciências', 'História', 'Geografia',
@@ -49,6 +53,18 @@ function EnviarAtividadeContent() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+
+  // IA Modal state
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiForm, setAiForm] = useState({
+    serie: '6ª série',
+    laudoAluno: '',
+    conteudo: '',
+    objetivos: '',
+  });
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiSuccessMsg, setAiSuccessMsg] = useState('');
+  const [aiErrorMsg, setAiErrorMsg] = useState('');
 
   useEffect(() => {
     if (!authLoading && user && turmaId && alunoId) loadData();
@@ -307,13 +323,225 @@ function EnviarAtividadeContent() {
               </ul>
             </div>
 
-            <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={() => router.back()}>Cancelar</Button>
-              <Button type="submit" loading={sending} disabled={!formData.disciplina}>Enviar</Button>
+            <div className="flex justify-between items-center pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="border-purple-600 text-purple-700 hover:bg-purple-50 flex items-center gap-2"
+                onClick={() => {
+                  setAiForm({
+                    serie: turma?.serie || '6ª série',
+                    laudoAluno: '',
+                    conteudo: '',
+                    objetivos: '',
+                  });
+                  setAiErrorMsg('');
+                  setAiSuccessMsg('');
+                  setAiModalOpen(true);
+                }}
+              >
+                🤖 Gerar Atividade com IA
+              </Button>
+
+              <div className="flex space-x-2">
+                <Button type="button" variant="outline" onClick={() => router.back()}>Cancelar</Button>
+                <Button type="submit" loading={sending} disabled={!formData.disciplina}>Enviar</Button>
+              </div>
             </div>
           </form>
         </Card>
       )}
+
+      {/* Modal de Geração por IA para o Professor */}
+      <Modal
+        isOpen={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        title={`Gerar Atividade por IA - ${aluno?.nome || ''}`}
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div className="bg-purple-50 p-3 rounded-lg text-sm text-purple-900">
+            <p><strong>Aluno:</strong> {aluno?.nome}</p>
+            <p><strong>Turma:</strong> {turma?.nome}</p>
+            <p><strong>Disciplina:</strong> {formData.disciplina || 'Geral'}</p>
+          </div>
+
+          <div>
+            <Select
+              label="Série / Ano Escolar"
+              value={aiForm.serie}
+              onChange={(e) => setAiForm({ ...aiForm, serie: e.target.value })}
+              options={seriesOptions.map((s) => ({ value: s, label: s }))}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Conteúdo Programático / Tema da Atividade
+            </label>
+            <textarea
+              value={aiForm.conteudo}
+              onChange={(e) => setAiForm({ ...aiForm, conteudo: e.target.value })}
+              rows={3}
+              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-purple-500 focus:outline-none"
+              placeholder="Descreva os tópicos a serem abordados na atividade..."
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Laudo / Adaptações Pedagógicas (Opcional)
+            </label>
+            <textarea
+              value={aiForm.laudoAluno}
+              onChange={(e) => setAiForm({ ...aiForm, laudoAluno: e.target.value })}
+              rows={2}
+              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-purple-500 focus:outline-none"
+              placeholder="Informações do laudo para a IA adaptar a atividade..."
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Objetivos de Aprendizagem (Opcional)
+            </label>
+            <Input
+              value={aiForm.objetivos}
+              onChange={(e) => setAiForm({ ...aiForm, objetivos: e.target.value })}
+              placeholder="Ex: Compreender conceitos principais"
+            />
+          </div>
+
+          {aiErrorMsg && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{aiErrorMsg}</p>}
+          {aiSuccessMsg && <p className="text-sm text-green-600 bg-green-50 p-3 rounded-lg">{aiSuccessMsg}</p>}
+
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button variant="outline" onClick={() => setAiModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!formData.disciplina) {
+                  setAiErrorMsg('Por favor, selecione a disciplina no formulário principal primeiro.');
+                  return;
+                }
+                setAiErrorMsg('');
+                setAiGenerating(true);
+                try {
+                  const configs = await FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO);
+                  const globalConfig = configs.length > 0 ? configs[0] : {
+                    id: '',
+                    nomeInstituicao: 'Colégio Maluf',
+                    logoUrl: '',
+                    corPrincipal: '#3B82F6',
+                    diasLembrete: [15, 7, 4, 3, 2, 1, 0],
+                    horarioLembrete: '09:00',
+                    prazoLimite: 30,
+                    prazoIA: 7,
+                    intervaloIA: 15,
+                    maxTentativasIA: 5,
+                    textoEmailLembrete: '',
+                    textoEmailConfirmacao: '',
+                    assinaturaEmail: '',
+                    emailDestinoNotificacoes: 'domiciliarmaluf@gmail.com',
+                    iaHabilitada: true,
+                    iaProvider: 'llm7',
+                    iaApiKey: '',
+                    iaModelo: 'gpt-3.5-turbo',
+                    senhaProfessor: 'professor123',
+                    createdAt: '',
+                    updatedAt: '',
+                  };
+
+                  const resIA = await generateActivityForStudent(
+                    aluno?.nome || 'Aluno',
+                    turma?.nome || 'Turma',
+                    formData.disciplina,
+                    globalConfig,
+                    aiForm.serie
+                  );
+
+                  // Atualiza ou cria o registro de envio como gerado por IA pelo professor
+                  const envioData = {
+                    atividadeId: '',
+                    alunoId,
+                    professorId: user!.id,
+                    professorNome: user!.name,
+                    turmaId,
+                    disciplina: formData.disciplina,
+                    versao: 1,
+                    status: 'gerado_ia' as const,
+                    arquivo: null,
+                    comentarios: `Gerado por IA pelo Professor Prof. ${user!.name}. ${aiForm.laudoAluno ? '(Com adaptações de laudo)' : ''}`,
+                    dataEnvio: getCurrentDate(),
+                    horaEnvio: getCurrentTime(),
+                    pedagogoId: turma?.pedagogoId || '',
+                    alunoNome: aluno?.nome || '',
+                    turmaNome: turma?.nome || '',
+                    professorEmail: user!.email,
+                  };
+
+                  const todosEnvios = await FirestoreService.getAllByType<Envio>(DOC_TYPES.ENVIO);
+                  const envioPendente = todosEnvios.find(
+                    (e) => e.alunoId === alunoId && e.turmaId === turmaId && e.status === 'pendente'
+                  );
+
+                  let envioId: string;
+                  if (envioPendente) {
+                    envioId = envioPendente.id;
+                    await FirestoreService.update(envioPendente.id, envioData);
+                  } else {
+                    envioId = await FirestoreService.create<Envio>(DOC_TYPES.ENVIO, envioData);
+                  }
+
+                  await FirestoreService.create<Historico>(DOC_TYPES.HISTORICO, {
+                    envioId,
+                    versao: 1,
+                    arquivo: null,
+                    comentarios: `Atividade gerada via IA pelo Prof. ${user!.name}`,
+                    dataEnvio: getCurrentDate(),
+                    horaEnvio: getCurrentTime(),
+                    professorId: user!.id,
+                    professorNome: user!.name,
+                    alunoId,
+                    alunoNome: aluno?.nome || '',
+                    turmaId,
+                    turmaNome: turma?.nome || '',
+                    disciplina: formData.disciplina,
+                  });
+
+                  // Envia notificação com os arquivos em anexo
+                  const destinoEmail = globalConfig.emailDestinoNotificacoes || 'domiciliarmaluf@gmail.com';
+                  await emailService.sendAIActivity(
+                    destinoEmail,
+                    aluno?.nome || '',
+                    turma?.nome || '',
+                    formData.disciplina,
+                    resIA.texto,
+                    resIA.pdf,
+                    resIA.docx
+                  );
+
+                  setAiSuccessMsg('Atividade gerada e enviada com sucesso!');
+                  setTimeout(() => {
+                    setAiModalOpen(false);
+                    setSuccess(true);
+                    setTimeout(() => router.push(`/professor/turmas/${turmaId}`), 1500);
+                  }, 1200);
+                } catch (err: any) {
+                  console.error('Erro na geração IA:', err);
+                  setAiErrorMsg(err.message || 'Falha ao gerar atividade por IA.');
+                } finally {
+                  setAiGenerating(false);
+                }
+              }}
+              loading={aiGenerating}
+            >
+              Gerar e Enviar por IA
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </DashboardLayout>
   );
 }
