@@ -164,7 +164,10 @@ export default function LancarAtividadesPedagogoPage() {
         selectedEnvio.turmaNome || 'Turma',
         formData.disciplina,
         configObj,
-        formData.serie
+        formData.serie,
+        formData.conteudo,
+        formData.laudoAluno,
+        formData.objetivos
       );
 
       // Atualiza o registro de envio para status gerado_ia

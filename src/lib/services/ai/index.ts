@@ -153,29 +153,45 @@ export async function generateActivityForStudent(
   turmaNome: string,
   disciplina: string,
   config: ConfiguracaoGlobal,
-  serie?: string
+  serie?: string,
+  userConteudo?: string,
+  laudoAluno?: string,
+  objetivos?: string
 ): Promise<{ texto: string; pdf: Buffer; docx: Buffer }> {
-  const conteudo = await buscarConteudoIA(disciplina, serie || '');
+  const conteudoDB = await buscarConteudoIA(disciplina, serie || '');
 
-  let prompt = `Gere uma atividade domiciliar para o aluno ${alunoNome} da turma ${turmaNome}.`;
+  let prompt = `Elabore uma atividade domiciliar RIGOROSAMENTE sobre a matéria "${disciplina}" para o(a) aluno(a) ${alunoNome} (${serie || 'Ensino Fundamental/Médio'}, Turma ${turmaNome}).
 
-  if (conteudo) {
-    prompt += `\n\nCONTEUDO PROGRAMATICO:
-- Disciplina: ${conteudo.disciplina}
-- Serie: ${conteudo.serie}
-- Tema: ${conteudo.titulo}
-- Conteudo: ${conteudo.conteudo}
-- Objetivos: ${conteudo.objetivos}
-- Nivel: ${conteudo.nivel}
+ATENÇÃO IMPERATIVA:
+- A disciplina É "${disciplina}". NÃO gere questões de outra matéria. Se a matéria for História, Geografia, Português, Biologia etc., JAMAIS gere continhas de matemática.
+- Adapte o vocabulário e a profundidade estritamente para a série/ano: ${serie || 'Nível Escolar'}.`;
 
-EXEMPLO DE EXERCICIO:
-${conteudo.exerciciosExemplo}
-
-Use este conteudo como base para criar a atividade.`;
-  } else {
-    prompt += `\n\nDisciplina: ${disciplina}
-Gere uma atividade adequada para o nivel medio, com exercicios variados e progressivos.`;
+  if (userConteudo) {
+    prompt += `\n\nTEMA / CONTEÚDO ESPECÍFICO EXIGIDO PELO PROFESSOR:
+${userConteudo}`;
+  } else if (conteudoDB) {
+    prompt += `\n\nCONTEÚDO PROGRAMÁTICO BASE:
+- Tema: ${conteudoDB.titulo}
+- Detalhes: ${conteudoDB.conteudo}
+- Exemplo: ${conteudoDB.exerciciosExemplo}`;
   }
+
+  if (laudoAluno) {
+    prompt += `\n\nLAUDO DO ALUNO / ADAPTAÇÕES PEDAGÓGICAS (MUITO IMPORTANTE):
+${laudoAluno}
+Adapte as questões (ex: questões mais diretas, enunciados claros, opções objetivas) respeitando rigorosamente as necessidades deste laudo.`;
+  }
+
+  if (objetivos) {
+    prompt += `\n\nOBJETIVOS DE APRENDIZAGEM:
+${objetivos}`;
+  }
+
+  prompt += `\n\nESTRUTURA DA ATIVIDADE:
+1. Título do Tema
+2. Breve texto explicativo/resumo do assunto
+3. 5 a 8 exercícios práticos referentes EXCLUSIVAMENTE à matéria ${disciplina}
+4. Se usar tabelas para dados ou textos comparativos, utilize a sintaxe de tabela Markdown (| Coluna 1 | Coluna 2 |)`;
 
   const provider = new LLM7Provider();
   const texto = await provider.generateActivity(prompt, config);

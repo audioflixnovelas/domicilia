@@ -1,4 +1,4 @@
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, TabStopType, TabStopPosition } from 'docx';
+import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, AlignmentType, WidthType, BorderStyle } from 'docx';
 import jsPDF from 'jspdf';
 
 export interface AtividadeData {
@@ -38,12 +38,12 @@ function parseAtividade(html: string): { titulo: string; linhas: string[] } {
 export async function gerarDOCX(atividade: AtividadeData): Promise<Buffer> {
   const { titulo, linhas } = parseAtividade(atividade.conteudo);
 
-  const children: Paragraph[] = [];
+  const children: (Paragraph | Table)[] = [];
 
   // Cabecalho
   children.push(
     new Paragraph({
-      children: [new TextRun({ text: 'ATIVIDADE DOMICILIAR', bold: true, size: 28 })],
+      children: [new TextRun({ text: 'ATIVIDADE DOMICILIAR - COLÉGIO MALUF', bold: true, size: 28 })],
       alignment: AlignmentType.CENTER,
       spacing: { after: 200 },
     })
@@ -53,7 +53,8 @@ export async function gerarDOCX(atividade: AtividadeData): Promise<Buffer> {
   children.push(
     new Paragraph({
       children: [
-        new TextRun({ text: `Disciplina: ${atividade.disciplina}`, size: 22 }),
+        new TextRun({ text: `Disciplina: ${atividade.disciplina}`, size: 22, bold: true }),
+        new TextRun({ text: `   |   Série: ${atividade.serie}`, size: 22 }),
       ],
       spacing: { after: 100 },
     })
@@ -63,15 +64,7 @@ export async function gerarDOCX(atividade: AtividadeData): Promise<Buffer> {
     new Paragraph({
       children: [
         new TextRun({ text: `Turma: ${atividade.turma}`, size: 22 }),
-      ],
-      spacing: { after: 100 },
-    })
-  );
-
-  children.push(
-    new Paragraph({
-      children: [
-        new TextRun({ text: `Aluno(a): ${atividade.aluno}`, size: 22 }),
+        new TextRun({ text: `   |   Aluno(a): ${atividade.aluno}`, size: 22, bold: true }),
       ],
       spacing: { after: 100 },
     })
@@ -86,8 +79,67 @@ export async function gerarDOCX(atividade: AtividadeData): Promise<Buffer> {
     })
   );
 
-  // Conteudo
+  // Processamento de linhas e tabelas Markdown
+  let inTable = false;
+  let tableRowsData: string[][] = [];
+
+  const flushTable = () => {
+    if (tableRowsData.length === 0) return;
+
+    const docxTableRows: TableRow[] = tableRowsData.map((rowCells, rowIndex) => {
+      const isHeader = rowIndex === 0;
+      return new TableRow({
+        children: rowCells.map(
+          (cellText) =>
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: cellText.trim(),
+                      bold: isHeader,
+                      size: isHeader ? 22 : 20,
+                    }),
+                  ],
+                }),
+              ],
+              width: { size: 100 / Math.max(rowCells.length, 1), type: WidthType.PERCENTAGE },
+              shading: isHeader ? { fill: 'F3F4F6' } : undefined,
+            })
+        ),
+      });
+    });
+
+    children.push(
+      new Table({
+        rows: docxTableRows,
+        width: { size: 100, type: WidthType.PERCENTAGE },
+      })
+    );
+
+    children.push(new Paragraph({ text: '', spacing: { after: 150 } }));
+    tableRowsData = [];
+    inTable = false;
+  };
+
   for (const linha of linhas.slice(1)) {
+    const isTableRow = linha.trim().startsWith('|') && linha.trim().endsWith('|');
+
+    if (isTableRow) {
+      // Ignora linhas separadoras do tipo |---|---|
+      if (linha.includes('---')) continue;
+
+      inTable = true;
+      const cells = linha
+        .split('|')
+        .slice(1, -1)
+        .map((c) => c.trim().replace(/\*\*/g, ''));
+      tableRowsData.push(cells);
+      continue;
+    } else if (inTable) {
+      flushTable();
+    }
+
     const isTitle = linha.startsWith('##');
     const text = linha.replace(/^##\s*/, '').replace(/\*\*/g, '');
 
@@ -104,7 +156,7 @@ export async function gerarDOCX(atividade: AtividadeData): Promise<Buffer> {
       })
     );
 
-    // Adiciona espaco para resposta se a linha contem "?"
+    // Adiciona espaco para resposta se a linha contem "?" ou exercicio numerado
     if (text.includes('?') || text.includes('___')) {
       children.push(
         new Paragraph({
@@ -113,6 +165,10 @@ export async function gerarDOCX(atividade: AtividadeData): Promise<Buffer> {
         })
       );
     }
+  }
+
+  if (inTable) {
+    flushTable();
   }
 
   const doc = new Document({
