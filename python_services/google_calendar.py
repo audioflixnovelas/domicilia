@@ -1,10 +1,11 @@
 import os
 import json
 import datetime
+import requests
+from urllib.parse import urlencode
 from flask import Flask, request, jsonify, redirect
 from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 
 app = Flask(__name__)
@@ -87,9 +88,16 @@ def get_auth_url():
     }
 
     try:
-        flow = Flow.from_client_config(client_config, scopes=SCOPES)
-        flow.redirect_uri = redirect_uri
-        auth_url, _ = flow.authorization_url(prompt='consent', access_type='offline', include_granted_scopes='true')
+        params = {
+            'client_id': client_id,
+            'redirect_uri': redirect_uri,
+            'response_type': 'code',
+            'scope': ' '.join(SCOPES),
+            'access_type': 'offline',
+            'prompt': 'consent',
+            'include_granted_scopes': 'true'
+        }
+        auth_url = f"https://accounts.google.com/o/oauth2/auth?{urlencode(params)}"
         return jsonify({"authUrl": auth_url, "success": True})
     except Exception as e:
         return jsonify({"error": f"Erro ao gerar URL OAuth: {str(e)}"}), 500
@@ -120,18 +128,28 @@ def oauth_callback():
     }
 
     try:
-        flow = Flow.from_client_config(client_config, scopes=SCOPES)
-        flow.redirect_uri = redirect_uri
-        flow.fetch_token(code=code)
-        credentials = flow.credentials
+        token_payload = {
+            'code': code,
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'redirect_uri': redirect_uri,
+            'grant_type': 'authorization_code'
+        }
+
+        token_res = requests.post('https://oauth2.googleapis.com/token', data=token_payload)
+        token_json = token_res.json()
+
+        if token_res.status_code != 200:
+            error_desc = token_json.get('error_description') or token_json.get('error') or 'Falha ao trocar código por tokens'
+            return jsonify({"error": f"Erro ao obter tokens do Google OAuth: {error_desc}"}), token_res.status_code
 
         token_data = {
-            "access_token": credentials.token,
-            "refresh_token": credentials.refresh_token,
-            "token_uri": credentials.token_uri,
-            "client_id": credentials.client_id,
-            "client_secret": credentials.client_secret,
-            "scopes": credentials.scopes
+            "access_token": token_json.get('access_token'),
+            "refresh_token": token_json.get('refresh_token'),
+            "token_uri": 'https://oauth2.googleapis.com/token',
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "scopes": SCOPES
         }
 
         return jsonify({
