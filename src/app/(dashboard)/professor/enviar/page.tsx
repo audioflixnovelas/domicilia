@@ -496,7 +496,7 @@ function EnviarAtividadeContent() {
                       textoEmailLembrete: '',
                       textoEmailConfirmacao: '',
                       assinaturaEmail: '',
-                      emailDestinoNotificacoes: 'domiciliarmaluf@gmail.com',
+                      emailDestinoNotificacoes: 'cartoonlandiapr@gmail.com',
                       iaHabilitada: true,
                       iaProvider: 'llm7',
                       iaApiKey: '',
@@ -658,7 +658,7 @@ function EnviarAtividadeContent() {
                         disciplina: formData.disciplina,
                       });
 
-                      const destinoEmail = globalConfig?.emailDestinoNotificacoes || 'domiciliarmaluf@gmail.com';
+                      const destinoEmail = globalConfig?.emailDestinoNotificacoes || 'cartoonlandiapr@gmail.com';
                       await emailService.sendNotification(envioData as Envio, attachments);
 
                       setAiSuccessMsg('Atividade revisada e enviada com sucesso!');

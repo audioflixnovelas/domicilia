@@ -82,7 +82,7 @@ export default function PoliticaDePrivacidadePage() {
           <section>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">7. Contato</h3>
             <p>
-              Para dúvidas sobre esta Política de Privacidade ou sobre o tratamento de dados pessoais, entre em contato pelo e-mail: <a href="mailto:domiciliarmaluf@gmail.com" className="text-blue-600 underline">domiciliarmaluf@gmail.com</a>.
+              Para dúvidas sobre esta Política de Privacidade ou sobre o tratamento de dados pessoais, entre em contato pelo e-mail: <a href="mailto:cartoonlandiapr@gmail.com" className="text-blue-600 underline">cartoonlandiapr@gmail.com</a>.
             </p>
           </section>
         </div>
