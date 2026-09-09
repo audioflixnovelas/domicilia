@@ -262,18 +262,24 @@ export function gerarPDF(atividade: AtividadeData): Buffer {
   doc.line(margin, y, pageWidth - margin, y);
   y += 10;
 
-  // Se houver imagens fornecidas pelo professor (data URLs), insere-as no PDF
+  // Se houver imagens fornecidas pelo professor/pedagogo (data URLs), insere-as no PDF com borda e espaçamento
   if (atividade.imagens && atividade.imagens.length > 0) {
     for (const imgUrl of atividade.imagens) {
       try {
-        if (y > 210) {
+        if (y > 170) {
           doc.addPage();
           y = margin;
         }
-        const imgWidth = 140;
-        const imgHeight = 85;
-        doc.addImage(imgUrl, 'PNG', (pageWidth - imgWidth) / 2, y, imgWidth, imgHeight);
-        y += imgHeight + 10;
+        const imgWidth = 135;
+        const imgHeight = 80;
+        const xPos = (pageWidth - imgWidth) / 2;
+
+        // Moldura em volta da imagem
+        doc.setDrawColor(220, 226, 230);
+        doc.rect(xPos - 2, y - 2, imgWidth + 4, imgHeight + 4);
+
+        doc.addImage(imgUrl, 'PNG', xPos, y, imgWidth, imgHeight);
+        y += imgHeight + 12;
       } catch (err) {
         console.error('Erro ao anexar imagem fornecida pelo professor no PDF:', err);
       }

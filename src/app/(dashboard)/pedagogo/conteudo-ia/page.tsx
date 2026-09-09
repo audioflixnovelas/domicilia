@@ -51,9 +51,29 @@ export default function LancarAtividadesPedagogoPage() {
   });
   const [aiStep, setAiStep] = useState<'prompt' | 'review'>('prompt');
   const [generatedText, setGeneratedText] = useState('');
+  const [customImageDataUrls, setCustomImageDataUrls] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  const handleCustomImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (selectedFiles && selectedFiles.length > 0) {
+      Array.from(selectedFiles).forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (reader.result) {
+            setCustomImageDataUrls((prev) => [...prev, reader.result as string]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  const removeCustomImage = (index: number) => {
+    setCustomImageDataUrls((prev) => prev.filter((_, i) => i !== index));
+  };
 
   useEffect(() => {
     if (user) loadData();
@@ -352,6 +372,41 @@ export default function LancarAtividadesPedagogoPage() {
                   placeholder="Ex: Compreender conceitos principais"
                 />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Anexar Figuras / Mapas / Gráficos Escolhidos pelo Pedagogo (Permite múltiplos arquivos)
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleCustomImageUpload}
+                  className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 p-2"
+                />
+                {customImageDataUrls.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-green-600 font-medium">
+                      ✓ {customImageDataUrls.length} imagem(ns) carregada(s) para inserção no PDF/DOCX:
+                    </p>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {customImageDataUrls.map((url, idx) => (
+                        <div key={idx} className="relative group border border-gray-200 rounded p-1 bg-white">
+                          <img src={url} alt={`Anexo ${idx + 1}`} className="w-16 h-16 object-cover rounded" />
+                          <button
+                            type="button"
+                            onClick={() => removeCustomImage(idx)}
+                            className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold shadow hover:bg-red-700"
+                            title="Remover imagem"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </>
           ) : (
             <div>
@@ -413,7 +468,8 @@ export default function LancarAtividadesPedagogoPage() {
                       formData.serie,
                       formData.conteudo,
                       formData.laudoAluno,
-                      formData.objetivos
+                      formData.objetivos,
+                      customImageDataUrls.length > 0 ? customImageDataUrls : undefined
                     );
 
                     setGeneratedText(resIA.texto);
@@ -448,6 +504,7 @@ export default function LancarAtividadesPedagogoPage() {
                         turma: selectedEnvio.turmaNome || '',
                         aluno: selectedEnvio.alunoNome || '',
                         conteudo: generatedText,
+                        imagens: customImageDataUrls.length > 0 ? customImageDataUrls : undefined,
                       };
 
                       const [pdf, docx] = await Promise.all([

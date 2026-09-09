@@ -64,20 +64,28 @@ function EnviarAtividadeContent() {
   });
   const [aiStep, setAiFormStep] = useState<'prompt' | 'review'>('prompt');
   const [generatedText, setGeneratedText] = useState('');
-  const [customImageDataUrl, setCustomImageDataUrl] = useState<string | null>(null);
+  const [customImageDataUrls, setCustomImageDataUrls] = useState<string[]>([]);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiSuccessMsg, setAiSuccessMsg] = useState('');
   const [aiErrorMsg, setAiErrorMsg] = useState('');
 
   const handleCustomImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0];
-    if (selected) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setCustomImageDataUrl(reader.result as string);
-      };
-      reader.readAsDataURL(selected);
+    const selectedFiles = e.target.files;
+    if (selectedFiles && selectedFiles.length > 0) {
+      Array.from(selectedFiles).forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (reader.result) {
+            setCustomImageDataUrls((prev) => [...prev, reader.result as string]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
     }
+  };
+
+  const removeCustomImage = (index: number) => {
+    setCustomImageDataUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
   useEffect(() => {
@@ -436,16 +444,36 @@ function EnviarAtividadeContent() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Anexar Figura/Mapa/Gráfico Escolhido pelo Professor (Opcional para o PDF/DOCX)
+                  Anexar Figuras / Mapas / Gráficos Escolhidos pelo Professor (Permite múltiplos arquivos)
                 </label>
                 <input
                   type="file"
                   accept="image/*"
+                  multiple
                   onChange={handleCustomImageUpload}
                   className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 p-2"
                 />
-                {customImageDataUrl && (
-                  <p className="mt-1 text-xs text-green-600 font-medium">✓ Imagem carregada e pronta para inserção no PDF</p>
+                {customImageDataUrls.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-green-600 font-medium">
+                      ✓ {customImageDataUrls.length} imagem(ns) carregada(s) para inserção no PDF/DOCX:
+                    </p>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {customImageDataUrls.map((url, idx) => (
+                        <div key={idx} className="relative group border border-gray-200 rounded p-1 bg-white">
+                          <img src={url} alt={`Anexo ${idx + 1}`} className="w-16 h-16 object-cover rounded" />
+                          <button
+                            type="button"
+                            onClick={() => removeCustomImage(idx)}
+                            className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold shadow hover:bg-red-700"
+                            title="Remover imagem"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
             </>
@@ -515,7 +543,7 @@ function EnviarAtividadeContent() {
                       aiForm.conteudo,
                       aiForm.laudoAluno,
                       aiForm.objetivos,
-                      customImageDataUrl ? [customImageDataUrl] : undefined
+                      customImageDataUrls.length > 0 ? customImageDataUrls : undefined
                     );
 
                     setGeneratedText(resIA.texto);
@@ -549,7 +577,7 @@ function EnviarAtividadeContent() {
                         turma: turma?.nome || '',
                         aluno: aluno?.nome || '',
                         conteudo: generatedText,
-                        imagens: customImageDataUrl ? [customImageDataUrl] : undefined,
+                        imagens: customImageDataUrls.length > 0 ? customImageDataUrls : undefined,
                       };
 
                       const [pdf, docx] = await Promise.all([

@@ -188,16 +188,22 @@ Adapte as questões (ex: questões mais diretas, enunciados claros, opções obj
 ${objetivos}`;
   }
 
-  prompt += `\n\nESTRUTURA DA ATIVIDADE:
-1. Título do Tema
-2. Breve texto explicativo/resumo do assunto
-3. REGRAS SOBRE DESENHOS E ILUSTRAÇÕES:
-   - JAMAIS desenhe figuras em ASCII art (ex: NUNCA use barras, barras invertidas ou traços como |\\, |  \\, +---+ para desenhar figuras).
-   - Quando precisar indicar uma figura de GEOMETRIA, TRIGONOMETRIA ou GRÁFICO, insira uma legenda descritiva como:
-     [Figura 1: Triângulo Retângulo ABC com ângulo reto em C, cateto b (base), cateto c (altura) e hipotenusa a]
-     O sistema de documentos gera a figura geométrica automaticamente.
-4. 5 a 8 exercícios práticos referentes EXCLUSIVAMENTE à matéria ${disciplina}
-5. Se usar tabelas para dados ou textos comparativos, utilize a sintaxe de tabela Markdown (| Coluna 1 | Coluna 2 |)`;
+  prompt += `\n\nEXIGÊNCIAS DE ESTRUTURA E CONTEÚDO PEDAGÓGICO:
+1. TÍTULO E EXPLICAÇÃO TEÓRICA APROFUNDADA:
+   - Apresente um título claro e em seguida uma seção detalhada "## Resumo Teórico do Conteúdo".
+   - Explique os conceitos principais, definições, fórmulas e contextos de aplicação antes das questões.
+
+2. EXERCÍCIOS PRÁTICOS (6 A 10 QUESTÕES):
+   - Elabore de 6 a 10 questões progressivas (conceituais, dissertativas, de múltipla escolha e de resolução prática).
+   - As questões devem ser ricas e totalmente fofadas no tema exigido (${disciplina}).
+
+3. REGRAS SOBRE ILUSTRAÇÕES E DIAGRAMAS:
+   - NUNCA crie desenhos em ASCII art (não use traços, barras invertidas ou símbolos para desenhar figuras como |\\, +---+).
+   - Quando a questão envolver mapas, gráficos, figuras de geometria ou esquemas, insira apenas uma legenda descritiva como:
+     [Figura: Descrição da figura ou mapa referente à questão]
+
+4. TABELAS:
+   - Se houver dados comparativos, utilize a sintaxe de tabela Markdown (| Coluna 1 | Coluna 2 |).`;
 
   const provider = new LLM7Provider();
   const texto = await provider.generateActivity(prompt, config);
