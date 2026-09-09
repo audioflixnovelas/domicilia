@@ -28,6 +28,7 @@ export interface AtividadeData {
   turma: string;
   aluno: string;
   conteudo: string;
+  imagens?: string[];
 }
 
 function isAsciiArtLine(line: string): boolean {
@@ -260,6 +261,24 @@ export function gerarPDF(atividade: AtividadeData): Buffer {
   doc.setDrawColor(200);
   doc.line(margin, y, pageWidth - margin, y);
   y += 10;
+
+  // Se houver imagens fornecidas pelo professor (data URLs), insere-as no PDF
+  if (atividade.imagens && atividade.imagens.length > 0) {
+    for (const imgUrl of atividade.imagens) {
+      try {
+        if (y > 210) {
+          doc.addPage();
+          y = margin;
+        }
+        const imgWidth = 140;
+        const imgHeight = 85;
+        doc.addImage(imgUrl, 'PNG', (pageWidth - imgWidth) / 2, y, imgWidth, imgHeight);
+        y += imgHeight + 10;
+      } catch (err) {
+        console.error('Erro ao anexar imagem fornecida pelo professor no PDF:', err);
+      }
+    }
+  }
 
   // Renderização de tabelas Markdown e linhas de texto
   let inPdfTable = false;

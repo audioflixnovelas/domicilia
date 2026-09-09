@@ -156,7 +156,8 @@ export async function generateActivityForStudent(
   serie?: string,
   userConteudo?: string,
   laudoAluno?: string,
-  objetivos?: string
+  objetivos?: string,
+  imagens?: string[]
 ): Promise<{ texto: string; pdf: Buffer; docx: Buffer }> {
   const conteudoDB = await buscarConteudoIA(disciplina, serie || '');
 
@@ -208,6 +209,7 @@ ${objetivos}`;
     turma: turmaNome,
     aluno: alunoNome,
     conteudo: texto,
+    imagens,
   };
 
   const [pdf, docx] = await Promise.all([

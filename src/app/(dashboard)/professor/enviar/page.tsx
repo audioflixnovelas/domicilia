@@ -64,9 +64,21 @@ function EnviarAtividadeContent() {
   });
   const [aiStep, setAiFormStep] = useState<'prompt' | 'review'>('prompt');
   const [generatedText, setGeneratedText] = useState('');
+  const [customImageDataUrl, setCustomImageDataUrl] = useState<string | null>(null);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiSuccessMsg, setAiSuccessMsg] = useState('');
   const [aiErrorMsg, setAiErrorMsg] = useState('');
+
+  const handleCustomImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (selected) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setCustomImageDataUrl(reader.result as string);
+      };
+      reader.readAsDataURL(selected);
+    }
+  };
 
   useEffect(() => {
     if (!authLoading && user && turmaId && alunoId) loadData();
@@ -421,6 +433,21 @@ function EnviarAtividadeContent() {
                   placeholder="Ex: Compreender conceitos principais"
                 />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Anexar Figura/Mapa/Gráfico Escolhido pelo Professor (Opcional para o PDF/DOCX)
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCustomImageUpload}
+                  className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 p-2"
+                />
+                {customImageDataUrl && (
+                  <p className="mt-1 text-xs text-green-600 font-medium">✓ Imagem carregada e pronta para inserção no PDF</p>
+                )}
+              </div>
             </>
           ) : (
             <div>
@@ -487,7 +514,8 @@ function EnviarAtividadeContent() {
                       aiForm.serie,
                       aiForm.conteudo,
                       aiForm.laudoAluno,
-                      aiForm.objetivos
+                      aiForm.objetivos,
+                      customImageDataUrl ? [customImageDataUrl] : undefined
                     );
 
                     setGeneratedText(resIA.texto);
@@ -521,6 +549,7 @@ function EnviarAtividadeContent() {
                         turma: turma?.nome || '',
                         aluno: aluno?.nome || '',
                         conteudo: generatedText,
+                        imagens: customImageDataUrl ? [customImageDataUrl] : undefined,
                       };
 
                       const [pdf, docx] = await Promise.all([
