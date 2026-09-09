@@ -531,6 +531,12 @@ function EnviarAtividadeContent() {
                       const configs = await FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO);
                       const globalConfig = configs.length > 0 ? configs[0] : null;
 
+                      let fileUpload = null;
+                      if (file) {
+                        const storagePath = generateStoragePath(turmaId, alunoId, formData.disciplina);
+                        fileUpload = await storageProvider.upload(file, storagePath);
+                      }
+
                       // Gera a Ficha de Atividade (DOCX) oficial do Colégio Maluf
                       const fichaResponse = await fetch('/api/ficha', {
                         method: 'POST',
@@ -543,25 +549,35 @@ function EnviarAtividadeContent() {
                           pedagoga: pedagogaNome,
                           data: formData.data || getCurrentDate(),
                           numAulas: formData.numAulas || '4',
-                          encaminhamento: 'Atividade Gerada por IA em anexo',
-                          roteiro: aiForm.conteudo || 'Realizar exercícios da atividade adaptada em anexo',
-                          observacoes: aiForm.laudoAluno ? `Atividade adaptada: ${aiForm.laudoAluno}` : 'Atividade desenvolvida com apoio de IA',
+                          encaminhamento: fileUpload ? 'Atividade em anexo e gerada por IA' : 'Atividade Gerada por IA em anexo',
+                          roteiro: formData.roteiro || aiForm.conteudo || 'Realizar exercícios da atividade adaptada em anexo',
+                          observacoes: formData.observacoes || (aiForm.laudoAluno ? `Atividade adaptada: ${aiForm.laudoAluno}` : 'Atividade desenvolvida com apoio de IA'),
                           quinzena: formData.quinzena || '1',
                           trimestre: formData.trimestre || '1',
                           anoLetivo: formData.anoLetivo || new Date().getFullYear().toString(),
                         }),
                       });
 
-                      let attachments: { filename: string; content: Buffer }[] = [
-                        { filename: `atividade_${aluno?.nome?.replace(/\s/g, '_')}_${formData.disciplina}.pdf`, content: pdf },
-                        { filename: `atividade_${aluno?.nome?.replace(/\s/g, '_')}_${formData.disciplina}.docx`, content: docx },
-                      ];
+                      let attachments: { filename: string; content: Buffer }[] = [];
 
                       if (fichaResponse.ok) {
                         const fichaBuffer = Buffer.from(await fichaResponse.arrayBuffer());
-                        attachments.unshift({
+                        attachments.push({
                           filename: `ficha_${aluno?.nome?.replace(/\s/g, '_')}_${formData.disciplina}.docx`,
                           content: fichaBuffer,
+                        });
+                      }
+
+                      attachments.push(
+                        { filename: `atividade_${aluno?.nome?.replace(/\s/g, '_')}_${formData.disciplina}.pdf`, content: pdf },
+                        { filename: `atividade_${aluno?.nome?.replace(/\s/g, '_')}_${formData.disciplina}.docx`, content: docx }
+                      );
+
+                      if (file) {
+                        const fileArrayBuffer = await file.arrayBuffer();
+                        attachments.push({
+                          filename: file.name,
+                          content: Buffer.from(fileArrayBuffer),
                         });
                       }
 
@@ -574,7 +590,7 @@ function EnviarAtividadeContent() {
                         disciplina: formData.disciplina,
                         versao: 1,
                         status: 'gerado_ia' as const,
-                        arquivo: null,
+                        arquivo: fileUpload,
                         comentarios: `Gerado por IA pelo Prof. ${user!.name}. ${aiForm.laudoAluno ? '(Com adaptações de laudo)' : ''}`,
                         dataEnvio: getCurrentDate(),
                         horaEnvio: getCurrentTime(),

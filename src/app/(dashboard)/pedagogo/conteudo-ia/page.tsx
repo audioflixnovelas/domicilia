@@ -481,15 +481,53 @@ export default function LancarAtividadesPedagogoPage() {
                         disciplina: formData.disciplina,
                       });
 
+                      // Gera a Ficha de Atividade (DOCX) oficial do Colégio Maluf
+                      const fichaResponse = await fetch('/api/ficha', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          professor: selectedEnvio.professorNome || user.name,
+                          disciplina: formData.disciplina,
+                          aluno: selectedEnvio.alunoNome || '',
+                          turma: selectedEnvio.turmaNome || '',
+                          pedagoga: user.name,
+                          data: getCurrentDate(),
+                          numAulas: '4',
+                          encaminhamento: 'Atividade Gerada por IA pelo Pedagogo',
+                          roteiro: formData.conteudo || 'Realizar exercícios da atividade adaptada em anexo',
+                          observacoes: formData.laudoAluno ? `Atividade adaptada: ${formData.laudoAluno}` : 'Lançado pelo pedagogo com apoio de IA',
+                          quinzena: '1',
+                          trimestre: '1',
+                          anoLetivo: new Date().getFullYear().toString(),
+                        }),
+                      });
+
+                      let attachments: { filename: string; content: Buffer }[] = [];
+
+                      if (fichaResponse.ok) {
+                        const fichaBuffer = Buffer.from(await fichaResponse.arrayBuffer());
+                        attachments.push({
+                          filename: `ficha_${selectedEnvio.alunoNome?.replace(/\s/g, '_')}_${formData.disciplina}.docx`,
+                          content: fichaBuffer,
+                        });
+                      }
+
+                      attachments.push(
+                        { filename: `atividade_${selectedEnvio.alunoNome?.replace(/\s/g, '_')}_${formData.disciplina}.pdf`, content: pdf },
+                        { filename: `atividade_${selectedEnvio.alunoNome?.replace(/\s/g, '_')}_${formData.disciplina}.docx`, content: docx }
+                      );
+
                       const destinoEmail = globalConfig?.emailDestinoNotificacoes || 'domiciliarmaluf@gmail.com';
-                      await emailService.sendAIActivity(
-                        destinoEmail,
-                        selectedEnvio.alunoNome || '',
-                        selectedEnvio.turmaNome || '',
-                        formData.disciplina,
-                        generatedText,
-                        pdf,
-                        docx
+                      await emailService.sendNotification(
+                        {
+                          ...selectedEnvio,
+                          disciplina: formData.disciplina,
+                          status: 'gerado_ia',
+                          dataEnvio: getCurrentDate(),
+                          horaEnvio: getCurrentTime(),
+                          comentarios: `Gerado por IA pelo Pedagogo ${user.name}`,
+                        } as Envio,
+                        attachments
                       );
 
                       setSuccessMsg('Atividade revisada e enviada com sucesso por IA!');
