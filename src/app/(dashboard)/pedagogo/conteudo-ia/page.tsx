@@ -49,6 +49,8 @@ export default function LancarAtividadesPedagogoPage() {
     objetivos: '',
     exerciciosExemplo: '',
   });
+  const [aiStep, setAiStep] = useState<'prompt' | 'review'>('prompt');
+  const [generatedText, setGeneratedText] = useState('');
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -115,6 +117,8 @@ export default function LancarAtividadesPedagogoPage() {
       objetivos: '',
       exerciciosExemplo: '',
     });
+    setAiStep('prompt');
+    setGeneratedText('');
     setError('');
     setSuccessMsg('');
     setModalOpen(true);
@@ -286,62 +290,82 @@ export default function LancarAtividadesPedagogoPage() {
         size="lg"
       >
         <div className="space-y-4">
-          <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-900">
-            <p><strong>Aluno:</strong> {selectedEnvio?.alunoNome}</p>
-            <p><strong>Turma:</strong> {selectedEnvio?.turmaNome}</p>
+          <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-900 flex justify-between items-center">
+            <div>
+              <p><strong>Aluno:</strong> {selectedEnvio?.alunoNome} | <strong>Turma:</strong> {selectedEnvio?.turmaNome}</p>
+            </div>
+            <span className="text-xs font-semibold px-2.5 py-1 bg-blue-200 rounded-full">
+              Passo {aiStep === 'prompt' ? '1/2: Instruções' : '2/2: Revisão & Edição'}
+            </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Select
-              label="Disciplina / Matéria"
-              value={formData.disciplina}
-              onChange={(e) => setFormData({ ...formData, disciplina: e.target.value })}
-              options={disciplinas.map((d) => ({ value: d, label: d }))}
-            />
-            <Select
-              label="Série / Ano"
-              value={formData.serie}
-              onChange={(e) => setFormData({ ...formData, serie: e.target.value })}
-              options={seriesOptions.map((s) => ({ value: s, label: s }))}
-            />
-          </div>
+          {aiStep === 'prompt' ? (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <Select
+                  label="Disciplina / Matéria"
+                  value={formData.disciplina}
+                  onChange={(e) => setFormData({ ...formData, disciplina: e.target.value })}
+                  options={disciplinas.map((d) => ({ value: d, label: d }))}
+                />
+                <Select
+                  label="Série / Ano"
+                  value={formData.serie}
+                  onChange={(e) => setFormData({ ...formData, serie: e.target.value })}
+                  options={seriesOptions.map((s) => ({ value: s, label: s }))}
+                />
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Laudo do Aluno / Observações de Adaptação (Opcional)
-            </label>
-            <textarea
-              value={formData.laudoAluno}
-              onChange={(e) => setFormData({ ...formData, laudoAluno: e.target.value })}
-              rows={2}
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none"
-              placeholder="Ex: Aluno com TDAH / dislexia. Necessita de questões objetivas e textos curtos..."
-            />
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Laudo do Aluno / Observações de Adaptação (Opcional)
+                </label>
+                <textarea
+                  value={formData.laudoAluno}
+                  onChange={(e) => setFormData({ ...formData, laudoAluno: e.target.value })}
+                  rows={2}
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none"
+                  placeholder="Ex: Aluno com TDAH / dislexia. Necessita de questões objetivas e textos curtos..."
+                />
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Conteúdo Programático / Tema
-            </label>
-            <textarea
-              value={formData.conteudo}
-              onChange={(e) => setFormData({ ...formData, conteudo: e.target.value })}
-              rows={3}
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none"
-              placeholder="Descreva o conteúdo. Ex: Frações equivalentes, adição e subtração de frações..."
-            />
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Conteúdo Programático / Tema
+                </label>
+                <textarea
+                  value={formData.conteudo}
+                  onChange={(e) => setFormData({ ...formData, conteudo: e.target.value })}
+                  rows={3}
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none"
+                  placeholder="Descreva o conteúdo. Ex: Reuvolução Industrial, Iluminismo..."
+                />
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Objetivos de Aprendizagem (Opcional)
-            </label>
-            <Input
-              value={formData.objetivos}
-              onChange={(e) => setFormData({ ...formData, objetivos: e.target.value })}
-              placeholder="Ex: Compreender a representação gráfica de frações"
-            />
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Objetivos de Aprendizagem (Opcional)
+                </label>
+                <Input
+                  value={formData.objetivos}
+                  onChange={(e) => setFormData({ ...formData, objetivos: e.target.value })}
+                  placeholder="Ex: Compreender conceitos principais"
+                />
+              </div>
+            </>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Revise e edite a atividade gerada pela IA antes de enviar:
+              </label>
+              <textarea
+                value={generatedText}
+                onChange={(e) => setGeneratedText(e.target.value)}
+                rows={12}
+                className="block w-full rounded-lg border border-gray-300 p-3 font-mono text-xs text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+          )}
 
           {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
           {successMsg && <p className="text-sm text-green-600 bg-green-50 p-3 rounded-lg">{successMsg}</p>}
@@ -350,9 +374,142 @@ export default function LancarAtividadesPedagogoPage() {
             <Button variant="outline" onClick={() => setModalOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleGerarEEnviarIA} loading={generating}>
-              Gerar e Enviar Atividade por IA
-            </Button>
+            {aiStep === 'prompt' ? (
+              <Button
+                onClick={async () => {
+                  if (!selectedEnvio || !user) return;
+                  setError('');
+                  setGenerating(true);
+                  try {
+                    const configObj: ConfiguracaoGlobal = globalConfig || {
+                      id: '',
+                      nomeInstituicao: 'Colégio Maluf',
+                      logoUrl: '',
+                      corPrincipal: '#3B82F6',
+                      diasLembrete: [15, 7, 4, 3, 2, 1, 0],
+                      horarioLembrete: '09:00',
+                      prazoLimite: 30,
+                      prazoIA: 7,
+                      intervaloIA: 15,
+                      maxTentativasIA: 5,
+                      textoEmailLembrete: '',
+                      textoEmailConfirmacao: '',
+                      assinaturaEmail: '',
+                      emailDestinoNotificacoes: 'domiciliarmaluf@gmail.com',
+                      iaHabilitada: true,
+                      iaProvider: 'llm7',
+                      iaApiKey: '',
+                      iaModelo: 'gpt-3.5-turbo',
+                      senhaProfessor: 'professor123',
+                      createdAt: '',
+                      updatedAt: '',
+                    };
+
+                    const resIA = await generateActivityForStudent(
+                      selectedEnvio.alunoNome || 'Aluno',
+                      selectedEnvio.turmaNome || 'Turma',
+                      formData.disciplina,
+                      configObj,
+                      formData.serie,
+                      formData.conteudo,
+                      formData.laudoAluno,
+                      formData.objetivos
+                    );
+
+                    setGeneratedText(resIA.texto);
+                    setAiStep('review');
+                  } catch (err: any) {
+                    console.error('Erro na prévia IA:', err);
+                    setError(err.message || 'Falha ao gerar prévia por IA.');
+                  } finally {
+                    setGenerating(false);
+                  }
+                }}
+                loading={generating}
+              >
+                Gerar Prévia da Atividade
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setAiStep('prompt')}>
+                  Voltar às Instruções
+                </Button>
+                <Button
+                  onClick={async () => {
+                    if (!selectedEnvio || !user) return;
+                    setError('');
+                    setGenerating(true);
+                    try {
+                      const { gerarDOCX, gerarPDF } = await import('@/lib/services/ai/gerar-documentos');
+                      const atividadeData = {
+                        titulo: 'Atividade Domiciliar',
+                        disciplina: formData.disciplina,
+                        serie: formData.serie || '',
+                        turma: selectedEnvio.turmaNome || '',
+                        aluno: selectedEnvio.alunoNome || '',
+                        conteudo: generatedText,
+                      };
+
+                      const [pdf, docx] = await Promise.all([
+                        Promise.resolve(gerarPDF(atividadeData)),
+                        gerarDOCX(atividadeData),
+                      ]);
+
+                      const updateData = {
+                        disciplina: formData.disciplina,
+                        status: 'gerado_ia' as const,
+                        comentarios: `Gerado pelo Pedagogo via IA (revisado). ${formData.laudoAluno ? '(Considerando laudo)' : ''}`,
+                        dataEnvio: getCurrentDate(),
+                        horaEnvio: getCurrentTime(),
+                      };
+
+                      await FirestoreService.update(selectedEnvio.id, updateData);
+
+                      await FirestoreService.create<Historico>(DOC_TYPES.HISTORICO, {
+                        envioId: selectedEnvio.id,
+                        versao: 1,
+                        arquivo: null,
+                        comentarios: `Atividade revisada e lançada pelo pedagogo ${user.name} via IA`,
+                        dataEnvio: getCurrentDate(),
+                        horaEnvio: getCurrentTime(),
+                        professorId: user.id,
+                        professorNome: user.name,
+                        alunoId: selectedEnvio.alunoId,
+                        alunoNome: selectedEnvio.alunoNome || '',
+                        turmaId: selectedEnvio.turmaId,
+                        turmaNome: selectedEnvio.turmaNome || '',
+                        disciplina: formData.disciplina,
+                      });
+
+                      const destinoEmail = globalConfig?.emailDestinoNotificacoes || 'domiciliarmaluf@gmail.com';
+                      await emailService.sendAIActivity(
+                        destinoEmail,
+                        selectedEnvio.alunoNome || '',
+                        selectedEnvio.turmaNome || '',
+                        formData.disciplina,
+                        generatedText,
+                        pdf,
+                        docx
+                      );
+
+                      setSuccessMsg('Atividade revisada e enviada com sucesso por IA!');
+                      setTimeout(() => {
+                        setModalOpen(false);
+                        loadData();
+                      }, 1500);
+                    } catch (err: any) {
+                      console.error('Erro ao enviar atividade revisada:', err);
+                      setError(err.message || 'Erro ao enviar atividade revisada.');
+                    } finally {
+                      setGenerating(false);
+                    }
+                  }}
+                  loading={generating}
+                >
+                  Confirmar e Enviar Atividade
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </Modal>

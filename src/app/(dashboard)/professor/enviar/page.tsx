@@ -62,6 +62,8 @@ function EnviarAtividadeContent() {
     conteudo: '',
     objetivos: '',
   });
+  const [aiStep, setAiFormStep] = useState<'prompt' | 'review'>('prompt');
+  const [generatedText, setGeneratedText] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiSuccessMsg, setAiSuccessMsg] = useState('');
   const [aiErrorMsg, setAiErrorMsg] = useState('');
@@ -335,6 +337,8 @@ function EnviarAtividadeContent() {
                     conteudo: '',
                     objetivos: '',
                   });
+                  setAiFormStep('prompt');
+                  setGeneratedText('');
                   setAiErrorMsg('');
                   setAiSuccessMsg('');
                   setAiModalOpen(true);
@@ -360,57 +364,77 @@ function EnviarAtividadeContent() {
         size="lg"
       >
         <div className="space-y-4">
-          <div className="bg-purple-50 p-3 rounded-lg text-sm text-purple-900">
-            <p><strong>Aluno:</strong> {aluno?.nome}</p>
-            <p><strong>Turma:</strong> {turma?.nome}</p>
-            <p><strong>Disciplina:</strong> {formData.disciplina || 'Geral'}</p>
+          <div className="bg-purple-50 p-3 rounded-lg text-sm text-purple-900 flex justify-between items-center">
+            <div>
+              <p><strong>Aluno:</strong> {aluno?.nome} | <strong>Turma:</strong> {turma?.nome}</p>
+              <p><strong>Disciplina:</strong> {formData.disciplina || 'Geral'}</p>
+            </div>
+            <span className="text-xs font-semibold px-2.5 py-1 bg-purple-200 rounded-full">
+              Passo {aiStep === 'prompt' ? '1/2: Instruções' : '2/2: Revisão & Edição'}
+            </span>
           </div>
 
-          <div>
-            <Select
-              label="Série / Ano Escolar"
-              value={aiForm.serie}
-              onChange={(e) => setAiForm({ ...aiForm, serie: e.target.value })}
-              options={seriesOptions.map((s) => ({ value: s, label: s }))}
-            />
-          </div>
+          {aiStep === 'prompt' ? (
+            <>
+              <div>
+                <Select
+                  label="Série / Ano Escolar"
+                  value={aiForm.serie}
+                  onChange={(e) => setAiForm({ ...aiForm, serie: e.target.value })}
+                  options={seriesOptions.map((s) => ({ value: s, label: s }))}
+                />
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Conteúdo Programático / Tema da Atividade
-            </label>
-            <textarea
-              value={aiForm.conteudo}
-              onChange={(e) => setAiForm({ ...aiForm, conteudo: e.target.value })}
-              rows={3}
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-purple-500 focus:outline-none"
-              placeholder="Descreva os tópicos a serem abordados na atividade..."
-            />
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Conteúdo Programático / Tema da Atividade
+                </label>
+                <textarea
+                  value={aiForm.conteudo}
+                  onChange={(e) => setAiForm({ ...aiForm, conteudo: e.target.value })}
+                  rows={3}
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-purple-500 focus:outline-none"
+                  placeholder="Descreva os tópicos a serem abordados na atividade..."
+                />
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Laudo / Adaptações Pedagógicas (Opcional)
-            </label>
-            <textarea
-              value={aiForm.laudoAluno}
-              onChange={(e) => setAiForm({ ...aiForm, laudoAluno: e.target.value })}
-              rows={2}
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-purple-500 focus:outline-none"
-              placeholder="Informações do laudo para a IA adaptar a atividade..."
-            />
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Laudo / Adaptações Pedagógicas (Opcional)
+                </label>
+                <textarea
+                  value={aiForm.laudoAluno}
+                  onChange={(e) => setAiForm({ ...aiForm, laudoAluno: e.target.value })}
+                  rows={2}
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-purple-500 focus:outline-none"
+                  placeholder="Informações do laudo para a IA adaptar a atividade..."
+                />
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Objetivos de Aprendizagem (Opcional)
-            </label>
-            <Input
-              value={aiForm.objetivos}
-              onChange={(e) => setAiForm({ ...aiForm, objetivos: e.target.value })}
-              placeholder="Ex: Compreender conceitos principais"
-            />
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Objetivos de Aprendizagem (Opcional)
+                </label>
+                <Input
+                  value={aiForm.objetivos}
+                  onChange={(e) => setAiForm({ ...aiForm, objetivos: e.target.value })}
+                  placeholder="Ex: Compreender conceitos principais"
+                />
+              </div>
+            </>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Revise e edite o texto da atividade antes do envio final:
+              </label>
+              <textarea
+                value={generatedText}
+                onChange={(e) => setGeneratedText(e.target.value)}
+                rows={12}
+                className="block w-full rounded-lg border border-gray-300 p-3 font-mono text-xs text-gray-900 shadow-sm focus:border-purple-500 focus:outline-none"
+              />
+            </div>
+          )}
 
           {aiErrorMsg && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{aiErrorMsg}</p>}
           {aiSuccessMsg && <p className="text-sm text-green-600 bg-green-50 p-3 rounded-lg">{aiSuccessMsg}</p>}
@@ -419,158 +443,198 @@ function EnviarAtividadeContent() {
             <Button variant="outline" onClick={() => setAiModalOpen(false)}>
               Cancelar
             </Button>
-            <Button
-              onClick={async () => {
-                if (!formData.disciplina) {
-                  setAiErrorMsg('Por favor, selecione a disciplina no formulário principal primeiro.');
-                  return;
-                }
-                setAiErrorMsg('');
-                setAiGenerating(true);
-                try {
-                  const configs = await FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO);
-                  const globalConfig = configs.length > 0 ? configs[0] : {
-                    id: '',
-                    nomeInstituicao: 'Colégio Maluf',
-                    logoUrl: '',
-                    corPrincipal: '#3B82F6',
-                    diasLembrete: [15, 7, 4, 3, 2, 1, 0],
-                    horarioLembrete: '09:00',
-                    prazoLimite: 30,
-                    prazoIA: 7,
-                    intervaloIA: 15,
-                    maxTentativasIA: 5,
-                    textoEmailLembrete: '',
-                    textoEmailConfirmacao: '',
-                    assinaturaEmail: '',
-                    emailDestinoNotificacoes: 'domiciliarmaluf@gmail.com',
-                    iaHabilitada: true,
-                    iaProvider: 'llm7',
-                    iaApiKey: '',
-                    iaModelo: 'gpt-3.5-turbo',
-                    senhaProfessor: 'professor123',
-                    createdAt: '',
-                    updatedAt: '',
-                  };
 
-                  const resIA = await generateActivityForStudent(
-                    aluno?.nome || 'Aluno',
-                    turma?.nome || 'Turma',
-                    formData.disciplina,
-                    globalConfig,
-                    aiForm.serie,
-                    aiForm.conteudo,
-                    aiForm.laudoAluno,
-                    aiForm.objetivos
-                  );
-
-                  // Gera a Ficha de Atividade (DOCX) oficial do Colégio Maluf
-                  const fichaResponse = await fetch('/api/ficha', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      professor: user!.name,
-                      disciplina: formData.disciplina,
-                      aluno: aluno?.nome || '',
-                      turma: turma?.nome || '',
-                      pedagoga: pedagogaNome,
-                      data: formData.data || getCurrentDate(),
-                      numAulas: formData.numAulas || '4',
-                      encaminhamento: 'Atividade Gerada por IA em anexo',
-                      roteiro: aiForm.conteudo || 'Realizar exercícios da atividade adaptada em anexo',
-                      observacoes: aiForm.laudoAluno ? `Atividade adaptada: ${aiForm.laudoAluno}` : 'Atividade desenvolvida com apoio de IA',
-                      quinzena: formData.quinzena || '1',
-                      trimestre: formData.trimestre || '1',
-                      anoLetivo: formData.anoLetivo || new Date().getFullYear().toString(),
-                    }),
-                  });
-
-                  let attachments: { filename: string; content: Buffer }[] = [
-                    { filename: `atividade_${aluno?.nome?.replace(/\s/g, '_')}_${formData.disciplina}.pdf`, content: resIA.pdf },
-                    { filename: `atividade_${aluno?.nome?.replace(/\s/g, '_')}_${formData.disciplina}.docx`, content: resIA.docx },
-                  ];
-
-                  if (fichaResponse.ok) {
-                    const fichaBuffer = Buffer.from(await fichaResponse.arrayBuffer());
-                    attachments.unshift({
-                      filename: `ficha_${aluno?.nome?.replace(/\s/g, '_')}_${formData.disciplina}.docx`,
-                      content: fichaBuffer,
-                    });
+            {aiStep === 'prompt' ? (
+              <Button
+                onClick={async () => {
+                  if (!formData.disciplina) {
+                    setAiErrorMsg('Por favor, selecione a disciplina no formulário principal primeiro.');
+                    return;
                   }
+                  setAiErrorMsg('');
+                  setAiGenerating(true);
+                  try {
+                    const configs = await FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO);
+                    const globalConfig = configs.length > 0 ? configs[0] : {
+                      id: '',
+                      nomeInstituicao: 'Colégio Maluf',
+                      logoUrl: '',
+                      corPrincipal: '#3B82F6',
+                      diasLembrete: [15, 7, 4, 3, 2, 1, 0],
+                      horarioLembrete: '09:00',
+                      prazoLimite: 30,
+                      prazoIA: 7,
+                      intervaloIA: 15,
+                      maxTentativasIA: 5,
+                      textoEmailLembrete: '',
+                      textoEmailConfirmacao: '',
+                      assinaturaEmail: '',
+                      emailDestinoNotificacoes: 'domiciliarmaluf@gmail.com',
+                      iaHabilitada: true,
+                      iaProvider: 'llm7',
+                      iaApiKey: '',
+                      iaModelo: 'gpt-3.5-turbo',
+                      senhaProfessor: 'professor123',
+                      createdAt: '',
+                      updatedAt: '',
+                    };
 
-                  // Atualiza ou cria o registro de envio como gerado por IA pelo professor
-                  const envioData = {
-                    atividadeId: '',
-                    alunoId,
-                    professorId: user!.id,
-                    professorNome: user!.name,
-                    turmaId,
-                    disciplina: formData.disciplina,
-                    versao: 1,
-                    status: 'gerado_ia' as const,
-                    arquivo: null,
-                    comentarios: `Gerado por IA pelo Prof. ${user!.name}. ${aiForm.laudoAluno ? '(Com adaptações de laudo)' : ''}`,
-                    dataEnvio: getCurrentDate(),
-                    horaEnvio: getCurrentTime(),
-                    pedagogoId: turma?.pedagogoId || '',
-                    alunoNome: aluno?.nome || '',
-                    turmaNome: turma?.nome || '',
-                    professorEmail: user!.email,
-                  };
+                    const resIA = await generateActivityForStudent(
+                      aluno?.nome || 'Aluno',
+                      turma?.nome || 'Turma',
+                      formData.disciplina,
+                      globalConfig,
+                      aiForm.serie,
+                      aiForm.conteudo,
+                      aiForm.laudoAluno,
+                      aiForm.objetivos
+                    );
 
-                  const todosEnvios = await FirestoreService.getAllByType<Envio>(DOC_TYPES.ENVIO);
-                  const envioPendente = todosEnvios.find(
-                    (e) => e.alunoId === alunoId && e.turmaId === turmaId && e.status === 'pendente'
-                  );
-
-                  let envioId: string;
-                  if (envioPendente) {
-                    envioId = envioPendente.id;
-                    await FirestoreService.update(envioPendente.id, envioData);
-                  } else {
-                    envioId = await FirestoreService.create<Envio>(DOC_TYPES.ENVIO, envioData);
+                    setGeneratedText(resIA.texto);
+                    setAiFormStep('review');
+                  } catch (err: any) {
+                    console.error('Erro na geração IA:', err);
+                    setAiErrorMsg(err.message || 'Falha ao gerar prévia por IA.');
+                  } finally {
+                    setAiGenerating(false);
                   }
+                }}
+                loading={aiGenerating}
+              >
+                Gerar Prévia da Atividade
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setAiFormStep('prompt')}>
+                  Voltar às Instruções
+                </Button>
+                <Button
+                  onClick={async () => {
+                    setAiErrorMsg('');
+                    setAiGenerating(true);
+                    try {
+                      const { gerarDOCX, gerarPDF } = await import('@/lib/services/ai/gerar-documentos');
+                      const atividadeData = {
+                        titulo: 'Atividade Domiciliar',
+                        disciplina: formData.disciplina,
+                        serie: aiForm.serie || '',
+                        turma: turma?.nome || '',
+                        aluno: aluno?.nome || '',
+                        conteudo: generatedText,
+                      };
 
-                  await FirestoreService.create<Historico>(DOC_TYPES.HISTORICO, {
-                    envioId,
-                    versao: 1,
-                    arquivo: null,
-                    comentarios: `Atividade gerada via IA pelo Prof. ${user!.name}`,
-                    dataEnvio: getCurrentDate(),
-                    horaEnvio: getCurrentTime(),
-                    professorId: user!.id,
-                    professorNome: user!.name,
-                    alunoId,
-                    alunoNome: aluno?.nome || '',
-                    turmaId,
-                    turmaNome: turma?.nome || '',
-                    disciplina: formData.disciplina,
-                  });
+                      const [pdf, docx] = await Promise.all([
+                        Promise.resolve(gerarPDF(atividadeData)),
+                        gerarDOCX(atividadeData),
+                      ]);
 
-                  // Envia notificação com os arquivos em anexo (Ficha + Atividade PDF/DOCX)
-                  const destinoEmail = globalConfig.emailDestinoNotificacoes || 'domiciliarmaluf@gmail.com';
-                  await emailService.sendNotification(
-                    envioData as Envio,
-                    attachments
-                  );
+                      const configs = await FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO);
+                      const globalConfig = configs.length > 0 ? configs[0] : null;
 
-                  setAiSuccessMsg('Atividade gerada e enviada com sucesso!');
-                  setTimeout(() => {
-                    setAiModalOpen(false);
-                    setSuccess(true);
-                    setTimeout(() => router.push(`/professor/turmas/${turmaId}`), 1500);
-                  }, 1200);
-                } catch (err: any) {
-                  console.error('Erro na geração IA:', err);
-                  setAiErrorMsg(err.message || 'Falha ao gerar atividade por IA.');
-                } finally {
-                  setAiGenerating(false);
-                }
-              }}
-              loading={aiGenerating}
-            >
-              Gerar e Enviar por IA
-            </Button>
+                      // Gera a Ficha de Atividade (DOCX) oficial do Colégio Maluf
+                      const fichaResponse = await fetch('/api/ficha', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          professor: user!.name,
+                          disciplina: formData.disciplina,
+                          aluno: aluno?.nome || '',
+                          turma: turma?.nome || '',
+                          pedagoga: pedagogaNome,
+                          data: formData.data || getCurrentDate(),
+                          numAulas: formData.numAulas || '4',
+                          encaminhamento: 'Atividade Gerada por IA em anexo',
+                          roteiro: aiForm.conteudo || 'Realizar exercícios da atividade adaptada em anexo',
+                          observacoes: aiForm.laudoAluno ? `Atividade adaptada: ${aiForm.laudoAluno}` : 'Atividade desenvolvida com apoio de IA',
+                          quinzena: formData.quinzena || '1',
+                          trimestre: formData.trimestre || '1',
+                          anoLetivo: formData.anoLetivo || new Date().getFullYear().toString(),
+                        }),
+                      });
+
+                      let attachments: { filename: string; content: Buffer }[] = [
+                        { filename: `atividade_${aluno?.nome?.replace(/\s/g, '_')}_${formData.disciplina}.pdf`, content: pdf },
+                        { filename: `atividade_${aluno?.nome?.replace(/\s/g, '_')}_${formData.disciplina}.docx`, content: docx },
+                      ];
+
+                      if (fichaResponse.ok) {
+                        const fichaBuffer = Buffer.from(await fichaResponse.arrayBuffer());
+                        attachments.unshift({
+                          filename: `ficha_${aluno?.nome?.replace(/\s/g, '_')}_${formData.disciplina}.docx`,
+                          content: fichaBuffer,
+                        });
+                      }
+
+                      const envioData = {
+                        atividadeId: '',
+                        alunoId,
+                        professorId: user!.id,
+                        professorNome: user!.name,
+                        turmaId,
+                        disciplina: formData.disciplina,
+                        versao: 1,
+                        status: 'gerado_ia' as const,
+                        arquivo: null,
+                        comentarios: `Gerado por IA pelo Prof. ${user!.name}. ${aiForm.laudoAluno ? '(Com adaptações de laudo)' : ''}`,
+                        dataEnvio: getCurrentDate(),
+                        horaEnvio: getCurrentTime(),
+                        pedagogoId: turma?.pedagogoId || '',
+                        alunoNome: aluno?.nome || '',
+                        turmaNome: turma?.nome || '',
+                        professorEmail: user!.email,
+                      };
+
+                      const todosEnvios = await FirestoreService.getAllByType<Envio>(DOC_TYPES.ENVIO);
+                      const envioPendente = todosEnvios.find(
+                        (e) => e.alunoId === alunoId && e.turmaId === turmaId && e.status === 'pendente'
+                      );
+
+                      let envioId: string;
+                      if (envioPendente) {
+                        envioId = envioPendente.id;
+                        await FirestoreService.update(envioPendente.id, envioData);
+                      } else {
+                        envioId = await FirestoreService.create<Envio>(DOC_TYPES.ENVIO, envioData);
+                      }
+
+                      await FirestoreService.create<Historico>(DOC_TYPES.HISTORICO, {
+                        envioId,
+                        versao: 1,
+                        arquivo: null,
+                        comentarios: `Atividade revisada e enviada via IA pelo Prof. ${user!.name}`,
+                        dataEnvio: getCurrentDate(),
+                        horaEnvio: getCurrentTime(),
+                        professorId: user!.id,
+                        professorNome: user!.name,
+                        alunoId,
+                        alunoNome: aluno?.nome || '',
+                        turmaId,
+                        turmaNome: turma?.nome || '',
+                        disciplina: formData.disciplina,
+                      });
+
+                      const destinoEmail = globalConfig?.emailDestinoNotificacoes || 'domiciliarmaluf@gmail.com';
+                      await emailService.sendNotification(envioData as Envio, attachments);
+
+                      setAiSuccessMsg('Atividade revisada e enviada com sucesso!');
+                      setTimeout(() => {
+                        setAiModalOpen(false);
+                        setSuccess(true);
+                        setTimeout(() => router.push(`/professor/turmas/${turmaId}`), 1500);
+                      }, 1200);
+                    } catch (err: any) {
+                      console.error('Erro no envio final:', err);
+                      setAiErrorMsg(err.message || 'Falha ao enviar atividade revisada.');
+                    } finally {
+                      setAiGenerating(false);
+                    }
+                  }}
+                  loading={aiGenerating}
+                >
+                  Confirmar e Enviar Atividade
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </Modal>
