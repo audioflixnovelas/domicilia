@@ -413,11 +413,11 @@ function ConfiguracoesAdminContent() {
                     await saveConfigToFirestore(config);
                     const users = await FirestoreService.getAllByType<User>(DOC_TYPES.USER);
                     const professoresComGoogle = users.filter(
-                      (u) => u.role === 'professor' && Boolean(u.googleOAuthTokensJson)
+                      (u) => (u.role === 'professor' || u.type === 'user' || u.type === 'professor') && Boolean(u.googleOAuthTokensJson)
                     );
 
                     if (professoresComGoogle.length === 0) {
-                      alert('Nenhum professor possui conta Google vinculada até o momento.');
+                      alert('Nenhum professor possui conta Google vinculada até o momento. Solicite aos professores que cliquem em "Vincular Conta Google com DomicilIA" no seu próprio painel.');
                       return;
                     }
 
