@@ -1,5 +1,6 @@
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, ImageRun, AlignmentType, WidthType, BorderStyle } from 'docx';
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // SVG Diagrama do Triângulo Retângulo
 function generateRightTriangleSVG(): string {
@@ -31,19 +32,30 @@ export interface AtividadeData {
 
 function isAsciiArtLine(line: string): boolean {
   const trimmed = line.trim();
-  // Detecta linhas típicas de desenhos ASCII como |\ , |  \ , /| , +---+
+  if (!trimmed) return false;
+  // Limpa delimitadores de código
+  if (trimmed.startsWith('```')) return true;
   if (/^\|[\s_]*\\$/i.test(trimmed)) return true;
   if (/^\|[\s_]*\/$/i.test(trimmed)) return true;
   if (/^\/\|$/i.test(trimmed)) return true;
   if (/^\+[-+]+\+$/i.test(trimmed)) return true;
   if (/^\|[\s_]+\|$/i.test(trimmed)) return true;
   if (/^\|[\s_]+\\$/i.test(trimmed)) return true;
+  if (/^[\/\\|\s_=-]{3,}$/i.test(trimmed)) return true;
   return false;
 }
 
+function cleanText(input: string): string {
+  return input
+    .replace(/Ø=[ÜÝÞª]/g, '')
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    .replace(/```[a-z]*/g, '')
+    .trim();
+}
+
 function parseAtividade(html: string): { titulo: string; linhas: string[] } {
-  // Remove tags HTML basicas e limpa ASCII art de figuras
-  const text = html
+  const cleaned = cleanText(html);
+  const text = cleaned
     .replace(/<h[1-6][^>]*>/gi, '\n## ')
     .replace(/<\/h[1-6]>/gi, '\n')
     .replace(/<p[^>]*>/gi, '\n')
@@ -249,74 +261,64 @@ export function gerarPDF(atividade: AtividadeData): Buffer {
   doc.line(margin, y, pageWidth - margin, y);
   y += 10;
 
-  // Se o conteúdo tratar de geometria / triângulo retângulo, insere o diagrama geométrico
-  const isGeometry = atividade.conteudo.toLowerCase().includes('triângulo') ||
-                     atividade.conteudo.toLowerCase().includes('cateto') ||
-                     atividade.conteudo.toLowerCase().includes('hipotenusa') ||
-                     atividade.disciplina.toLowerCase().includes('geometria') ||
-                     atividade.disciplina.toLowerCase().includes('matemática');
+  // Renderização de tabelas Markdown e linhas de texto
+  let inPdfTable = false;
+  let pdfTableHead: string[] = [];
+  let pdfTableBody: string[][] = [];
 
-  if (isGeometry) {
-    try {
-      const canvas = document.createElement('canvas');
-      canvas.width = 300;
-      canvas.height = 180;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, 300, 180);
-        // Desenha Triângulo Retângulo
-        ctx.beginPath();
-        ctx.moveTo(50, 150);
-        ctx.lineTo(250, 150);
-        ctx.lineTo(50, 30);
-        ctx.closePath();
-        ctx.fillStyle = '#e0f2fe';
-        ctx.fill();
-        ctx.strokeStyle = '#1d4ed8';
-        ctx.lineWidth = 3;
-        ctx.stroke();
+  const flushPdfTable = () => {
+    if (pdfTableBody.length === 0 && pdfTableHead.length === 0) return;
 
-        // Ângulo reto
-        ctx.strokeRect(50, 130, 20, 20);
+    autoTable(doc, {
+      startY: y,
+      head: pdfTableHead.length > 0 ? [pdfTableHead] : undefined,
+      body: pdfTableBody,
+      margin: { left: margin, right: margin },
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [59, 130, 246] },
+    });
 
-        // Textos
-        ctx.fillStyle = '#0f172a';
-        ctx.font = 'bold 13px Arial';
-        ctx.fillText('C (90°)', 25, 155);
-        ctx.fillText('B', 255, 155);
-        ctx.fillText('A', 45, 20);
+    y = (doc as any).lastAutoTable.finalY + 8;
+    pdfTableHead = [];
+    pdfTableBody = [];
+    inPdfTable = false;
+  };
 
-        ctx.fillStyle = '#0284c7';
-        ctx.fillText('Cateto b (base)', 115, 170);
-        ctx.fillText('Cateto c (altura)', 10, 95);
-        ctx.fillStyle = '#b91c1c';
-        ctx.fillText('Hipotenusa a', 150, 85);
-
-        const imgData = canvas.toDataURL('image/png');
-        doc.addImage(imgData, 'PNG', (pageWidth - 100) / 2, y, 100, 60);
-        y += 65;
-      }
-    } catch {
-      // Ignora se estiver rodando em ambiente SSR headless puro sem Canvas
-    }
-  }
-
-  // Conteudo
   doc.setFontSize(11);
+
   for (const linha of linhas.slice(1)) {
-    const isTitle = linha.startsWith('##');
-    const text = linha.replace(/^##\s*/, '').replace(/\*\*/g, '');
+    const isTableRow = linha.trim().startsWith('|') && linha.trim().endsWith('|');
+
+    if (isTableRow) {
+      if (linha.includes('---')) continue;
+
+      const cells = linha
+        .split('|')
+        .slice(1, -1)
+        .map((c) => c.trim().replace(/\*\*/g, ''));
+
+      if (!inPdfTable) {
+        inPdfTable = true;
+        pdfTableHead = cells;
+      } else {
+        pdfTableBody.push(cells);
+      }
+      continue;
+    } else if (inPdfTable) {
+      flushPdfTable();
+    }
+
+    const isTitle = linha.startsWith('##') || linha.startsWith('#');
+    const text = linha.replace(/^#+\s*/, '').replace(/\*\*/g, '');
 
     if (isTitle) {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(12);
     } else {
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(11);
+      doc.setFontSize(10);
     }
 
-    // Quebra de pagina
     if (y > 270) {
       doc.addPage();
       y = margin;
@@ -324,18 +326,23 @@ export function gerarPDF(atividade: AtividadeData): Buffer {
 
     const lines = doc.splitTextToSize(text, maxWidth);
     doc.text(lines, margin, y);
-    y += lines.length * 6;
+    y += lines.length * 5 + 2;
 
-    // Espaco para resposta
-    if (text.includes('?') || text.includes('___')) {
-      y += 2;
+    // Adiciona campo de resposta limpo apenas para questões principais sem duplicar
+    if (text.includes('?') && !text.toLowerCase().startsWith('resposta:')) {
+      if (y > 270) {
+        doc.addPage();
+        y = margin;
+      }
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.text('Resposta: _______________________________________________', margin, y);
-      y += 10;
+      doc.setFontSize(9);
+      doc.text('Resposta: ____________________________________________________', margin, y);
+      y += 8;
     }
+  }
 
-    y += 4;
+  if (inPdfTable) {
+    flushPdfTable();
   }
 
   return Buffer.from(doc.output('arraybuffer'));
