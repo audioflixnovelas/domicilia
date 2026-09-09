@@ -190,7 +190,11 @@ ${objetivos}`;
   prompt += `\n\nESTRUTURA DA ATIVIDADE:
 1. Título do Tema
 2. Breve texto explicativo/resumo do assunto
-3. Se o assunto for de GEOMETRIA, TRIGONOMETRIA ou FÍSICA, inclua diagramas geométricos descritivos e ascii/esquemas claros para apoiar o aluno (ex: [Diagrama do Triângulo Retângulo com Ângulo Reto em C, Catetos b e c, e Hipotenusa a]).
+3. REGRAS SOBRE DESENHOS E ILUSTRAÇÕES:
+   - JAMAIS desenhe figuras em ASCII art (ex: NUNCA use barras, barras invertidas ou traços como |\\, |  \\, +---+ para desenhar figuras).
+   - Quando precisar indicar uma figura de GEOMETRIA, TRIGONOMETRIA ou GRÁFICO, insira uma legenda descritiva como:
+     [Figura 1: Triângulo Retângulo ABC com ângulo reto em C, cateto b (base), cateto c (altura) e hipotenusa a]
+     O sistema de documentos gera a figura geométrica automaticamente.
 4. 5 a 8 exercícios práticos referentes EXCLUSIVAMENTE à matéria ${disciplina}
 5. Se usar tabelas para dados ou textos comparativos, utilize a sintaxe de tabela Markdown (| Coluna 1 | Coluna 2 |)`;
 

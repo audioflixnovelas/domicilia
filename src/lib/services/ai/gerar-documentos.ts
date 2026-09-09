@@ -29,8 +29,20 @@ export interface AtividadeData {
   conteudo: string;
 }
 
+function isAsciiArtLine(line: string): boolean {
+  const trimmed = line.trim();
+  // Detecta linhas típicas de desenhos ASCII como |\ , |  \ , /| , +---+
+  if (/^\|[\s_]*\\$/i.test(trimmed)) return true;
+  if (/^\|[\s_]*\/$/i.test(trimmed)) return true;
+  if (/^\/\|$/i.test(trimmed)) return true;
+  if (/^\+[-+]+\+$/i.test(trimmed)) return true;
+  if (/^\|[\s_]+\|$/i.test(trimmed)) return true;
+  if (/^\|[\s_]+\\$/i.test(trimmed)) return true;
+  return false;
+}
+
 function parseAtividade(html: string): { titulo: string; linhas: string[] } {
-  // Remove tags HTML basicas
+  // Remove tags HTML basicas e limpa ASCII art de figuras
   const text = html
     .replace(/<h[1-6][^>]*>/gi, '\n## ')
     .replace(/<\/h[1-6]>/gi, '\n')
@@ -48,7 +60,8 @@ function parseAtividade(html: string): { titulo: string; linhas: string[] } {
     .replace(/&gt;/g, '>')
     .trim();
 
-  const linhas = text.split('\n').filter((l) => l.trim());
+  const rawLinhas = text.split('\n').filter((l) => l.trim());
+  const linhas = rawLinhas.filter((l) => !isAsciiArtLine(l));
   const titulo = linhas[0]?.replace(/^##\s*/, '') || 'Atividade Domiciliar';
 
   return { titulo, linhas };
