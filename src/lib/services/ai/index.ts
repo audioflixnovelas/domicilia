@@ -193,16 +193,23 @@ ${objetivos}`;
    - Apresente um título claro e em seguida uma seção detalhada "## Resumo Teórico do Conteúdo".
    - Explique os conceitos principais, definições, fórmulas e contextos de aplicação antes das questões.
 
-2. EXERCÍCIOS PRÁTICOS (6 A 10 QUESTÕES):
-   - Elabore de 6 a 10 questões progressivas (conceituais, dissertativas, de múltipla escolha e de resolução prática).
-   - As questões devem ser ricas e totalmente fofadas no tema exigido (${disciplina}).
+2. FÓRMULAS E NOTAÇÃO MATEMÁTICA (MUITO IMPORTANTE):
+   - JAMAIS use notação LaTeX (JAMAIS use \\(, \\), \\frac, \\sin, \\cos, \\tan, \\theta, \\times, ^2).
+   - Escreva fórmulas em texto simples e claro em português. Exemplos:
+     * Use "a² + b² = c²" em vez de "a^2 + b^2 = c^2"
+     * Use "sen(θ) = oposto / hipotenusa" em vez de "\\sin(\\theta) = \\frac{\\text{oposto}}{\\text{hipotenusa}}"
+     * Use "cos(x)" e "tan(x)"
 
-3. REGRAS SOBRE ILUSTRAÇÕES E DIAGRAMAS:
+3. EXERCÍCIOS PRÁTICOS (6 A 10 QUESTÕES):
+   - Elabore de 6 a 10 questões progressivas (conceituais, dissertativas, de múltipla escolha e de resolução prática).
+   - As questões devem ser ricas e totalmente focadas no tema exigido (${disciplina}).
+
+4. REGRAS SOBRE ILUSTRAÇÕES E DIAGRAMAS:
    - NUNCA crie desenhos em ASCII art (não use traços, barras invertidas ou símbolos para desenhar figuras como |\\, +---+).
    - Quando a questão envolver mapas, gráficos, figuras de geometria ou esquemas, insira apenas uma legenda descritiva como:
      [Figura: Descrição da figura ou mapa referente à questão]
 
-4. TABELAS:
+5. TABELAS:
    - Se houver dados comparativos, utilize a sintaxe de tabela Markdown (| Coluna 1 | Coluna 2 |).`;
 
   const provider = new LLM7Provider();

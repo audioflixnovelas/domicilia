@@ -47,11 +47,32 @@ function isAsciiArtLine(line: string): boolean {
 }
 
 function cleanText(input: string): string {
-  return input
+  let text = input
     .replace(/Ø=[ÜÝÞª]/g, '')
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-    .replace(/```[a-z]*/g, '')
-    .trim();
+    .replace(/```[a-z]*/g, '');
+
+  // Converte comandos LaTeX em notação matemática comum legível em português
+  text = text
+    .replace(/\\\(|\\\)/g, '') // remove \( e \)
+    .replace(/\\\[|\\\]/g, '') // remove \[ e \]
+    .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '$1 / $2') // \frac{A}{B} -> A / B
+    .replace(/\\text\{([^}]+)\}/g, '$1') // \text{palavra} -> palavra
+    .replace(/\\sin/g, 'sen')
+    .replace(/\\cos/g, 'cos')
+    .replace(/\\tan/g, 'tan')
+    .replace(/\\theta/g, 'θ')
+    .replace(/\\alpha/g, 'α')
+    .replace(/\\beta/g, 'β')
+    .replace(/\\pi/g, 'π')
+    .replace(/\\sqrt\{([^}]+)\}/g, '√($1)')
+    .replace(/\\cdot/g, '·')
+    .replace(/\\times/g, '×')
+    .replace(/\^2/g, '²')
+    .replace(/\^3/g, '³')
+    .replace(/Resposta:\s*___/gi, ''); // remove linhas soltas "Resposta: ___" duplicadas
+
+  return text.trim();
 }
 
 function parseAtividade(html: string): { titulo: string; linhas: string[] } {
