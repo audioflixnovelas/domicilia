@@ -1,5 +1,24 @@
-import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, AlignmentType, WidthType, BorderStyle } from 'docx';
+import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, ImageRun, AlignmentType, WidthType, BorderStyle } from 'docx';
 import jsPDF from 'jspdf';
+
+// SVG Diagrama do Triângulo Retângulo
+function generateRightTriangleSVG(): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200">
+    <rect width="100%" height="100%" fill="#ffffff"/>
+    <polygon points="50,160 250,160 50,40" fill="#e0f2fe" stroke="#1d4ed8" stroke-width="3"/>
+    <!-- Ângulo Reto -->
+    <rect x="50" y="140" width="20" height="20" fill="none" stroke="#1d4ed8" stroke-width="2"/>
+    <circle cx="60" cy="150" r="2.5" fill="#1d4ed8"/>
+    <!-- Rótulos -->
+    <text x="35" y="165" font-family="Arial" font-size="14" font-weight="bold" fill="#0f172a">A</text>
+    <text x="260" y="165" font-family="Arial" font-size="14" font-weight="bold" fill="#0f172a">B</text>
+    <text x="35" y="35" font-family="Arial" font-size="14" font-weight="bold" fill="#0f172a">C</text>
+    <!-- Lados -->
+    <text x="145" y="180" font-family="Arial" font-size="13" font-weight="bold" fill="#0284c7">Cateto b</text>
+    <text x="15" y="105" font-family="Arial" font-size="13" font-weight="bold" fill="#0284c7">Cateto c</text>
+    <text x="155" y="90" font-family="Arial" font-size="13" font-weight="bold" fill="#b91c1c">Hipotenusa a</text>
+  </svg>`;
+}
 
 export interface AtividadeData {
   titulo: string;
@@ -198,26 +217,77 @@ export function gerarPDF(atividade: AtividadeData): Buffer {
   let y = margin;
 
   // Cabecalho
-  doc.setFontSize(18);
+  doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.text('ATIVIDADE DOMICILIAR', pageWidth / 2, y, { align: 'center' });
+  doc.text('ATIVIDADE DOMICILIAR - COLÉGIO MALUF', pageWidth / 2, y, { align: 'center' });
   y += 12;
 
-  doc.setFontSize(11);
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Disciplina: ${atividade.disciplina}`, margin, y);
-  y += 7;
-  doc.text(`Turma: ${atividade.turma}`, margin, y);
-  y += 7;
-  doc.text(`Aluno(a): ${atividade.aluno}`, margin, y);
-  y += 7;
+  doc.text(`Disciplina: ${atividade.disciplina} | Série: ${atividade.serie}`, margin, y);
+  y += 6;
+  doc.text(`Turma: ${atividade.turma} | Aluno(a): ${atividade.aluno}`, margin, y);
+  y += 6;
   doc.text('Data: ____/____/________', margin, y);
-  y += 12;
+  y += 10;
 
   // Linha separadora
   doc.setDrawColor(200);
   doc.line(margin, y, pageWidth - margin, y);
   y += 10;
+
+  // Se o conteúdo tratar de geometria / triângulo retângulo, insere o diagrama geométrico
+  const isGeometry = atividade.conteudo.toLowerCase().includes('triângulo') ||
+                     atividade.conteudo.toLowerCase().includes('cateto') ||
+                     atividade.conteudo.toLowerCase().includes('hipotenusa') ||
+                     atividade.disciplina.toLowerCase().includes('geometria') ||
+                     atividade.disciplina.toLowerCase().includes('matemática');
+
+  if (isGeometry) {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 300;
+      canvas.height = 180;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, 300, 180);
+        // Desenha Triângulo Retângulo
+        ctx.beginPath();
+        ctx.moveTo(50, 150);
+        ctx.lineTo(250, 150);
+        ctx.lineTo(50, 30);
+        ctx.closePath();
+        ctx.fillStyle = '#e0f2fe';
+        ctx.fill();
+        ctx.strokeStyle = '#1d4ed8';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // Ângulo reto
+        ctx.strokeRect(50, 130, 20, 20);
+
+        // Textos
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 13px Arial';
+        ctx.fillText('C (90°)', 25, 155);
+        ctx.fillText('B', 255, 155);
+        ctx.fillText('A', 45, 20);
+
+        ctx.fillStyle = '#0284c7';
+        ctx.fillText('Cateto b (base)', 115, 170);
+        ctx.fillText('Cateto c (altura)', 10, 95);
+        ctx.fillStyle = '#b91c1c';
+        ctx.fillText('Hipotenusa a', 150, 85);
+
+        const imgData = canvas.toDataURL('image/png');
+        doc.addImage(imgData, 'PNG', (pageWidth - 100) / 2, y, 100, 60);
+        y += 65;
+      }
+    } catch {
+      // Ignora se estiver rodando em ambiente SSR headless puro sem Canvas
+    }
+  }
 
   // Conteudo
   doc.setFontSize(11);

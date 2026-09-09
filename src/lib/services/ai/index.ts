@@ -190,8 +190,9 @@ ${objetivos}`;
   prompt += `\n\nESTRUTURA DA ATIVIDADE:
 1. Título do Tema
 2. Breve texto explicativo/resumo do assunto
-3. 5 a 8 exercícios práticos referentes EXCLUSIVAMENTE à matéria ${disciplina}
-4. Se usar tabelas para dados ou textos comparativos, utilize a sintaxe de tabela Markdown (| Coluna 1 | Coluna 2 |)`;
+3. Se o assunto for de GEOMETRIA, TRIGONOMETRIA ou FÍSICA, inclua diagramas geométricos descritivos e ascii/esquemas claros para apoiar o aluno (ex: [Diagrama do Triângulo Retângulo com Ângulo Reto em C, Catetos b e c, e Hipotenusa a]).
+4. 5 a 8 exercícios práticos referentes EXCLUSIVAMENTE à matéria ${disciplina}
+5. Se usar tabelas para dados ou textos comparativos, utilize a sintaxe de tabela Markdown (| Coluna 1 | Coluna 2 |)`;
 
   const provider = new LLM7Provider();
   const texto = await provider.generateActivity(prompt, config);
