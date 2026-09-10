@@ -82,7 +82,7 @@ function ProfessorDashboardContent() {
           // Busca último envio do aluno para este professor
           const ultimoEnvio = enviosCompletados.sort((a, b) => (b.dataEnvio > a.dataEnvio ? 1 : -1))[0];
 
-          // Se nunca enviou ou se o último envio tem mais de 6 dias
+          // Se nunca enviou ou se o último envio tem 14 ou mais dias (quinzenal)
           let precisaEnviar = false;
           if (!ultimoEnvio) {
             precisaEnviar = true;
@@ -90,7 +90,7 @@ function ProfessorDashboardContent() {
             const dataUltimo = new Date(ultimoEnvio.dataEnvio);
             const dataHoje = new Date(hojeStr);
             const diffDias = Math.floor((dataHoje.getTime() - dataUltimo.getTime()) / (1000 * 3600 * 24));
-            if (diffDias >= 7) {
+            if (diffDias >= 14) {
               precisaEnviar = true;
             }
           }

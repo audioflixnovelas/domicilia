@@ -120,7 +120,7 @@ export default function LancarAtividadesPedagogoPage() {
         }
       }
 
-      // Calcula dinamicamente alunos no atestado que não enviaram há mais de 7 dias
+      // Calcula dinamicamente alunos no atestado que não enviaram há mais de 14 dias (quinzenal)
       for (const aluno of alunosAtivosNoPeriodo) {
         const turma = turmasMap.get(aluno.turmaId);
         if (!turma) continue;
@@ -136,7 +136,7 @@ export default function LancarAtividadesPedagogoPage() {
           const dataUltimo = new Date(ultimoEnvio.dataEnvio);
           const dataHoje = new Date(hojeStr);
           const diffDias = Math.floor((dataHoje.getTime() - dataUltimo.getTime()) / (1000 * 3600 * 24));
-          if (diffDias >= 7) {
+          if (diffDias >= 14) {
             precisaEnviar = true;
           }
         }
