@@ -14,7 +14,7 @@ import { PageLoading } from '@/components/ui/Loading';
 import { Modal } from '@/components/ui/Modal';
 import { FirestoreService, DOC_TYPES, whereEqual } from '@/lib/services/firestore';
 import { Aluno, Turma } from '@/types';
-import { formatDate } from '@/lib/utils';
+import { formatDate, isPeriodoAtivoAluno } from '@/lib/utils';
 
 export default function AlunosPage() {
   const router = useRouter();
@@ -138,7 +138,11 @@ export default function AlunosPage() {
                   <TableCell>
                     {aluno.domiciliar ? (
                       <div>
-                        <Badge variant="info">Sim</Badge>
+                        {isPeriodoAtivoAluno(aluno) ? (
+                          <Badge variant="info">Ativo no Período</Badge>
+                        ) : (
+                          <Badge variant="warning">Período Concluído (Saiu)</Badge>
+                        )}
                         {aluno.dataInicio && aluno.dataFim && (
                           <div className="text-xs text-gray-500 mt-1">
                             {formatDate(aluno.dataInicio)} a {formatDate(aluno.dataFim)}

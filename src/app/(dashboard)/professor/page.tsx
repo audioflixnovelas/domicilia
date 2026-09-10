@@ -115,7 +115,7 @@ function ProfessorDashboardContent() {
                 status: 'pendente',
                 arquivo: null,
                 comentarios: '',
-                dataEnvio: aluno.dataInicio || hojeStr,
+                dataEnvio: hojeStr,
                 horaEnvio: '07:00',
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),

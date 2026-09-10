@@ -112,7 +112,8 @@ export default function LancarAtividadesPedagogoPage() {
       // Adiciona envios explicitamente marcados como pendentes
       for (const e of enviosData) {
         if ((e.status === 'pendente' || e.status === 'atrasado') && isPeriodoAtivoAluno(alunosMap.get(e.alunoId) as Aluno)) {
-          pendentesMap.set(`${e.alunoId}_${e.turmaId}_${e.professorId || 'gen'}`, {
+          const key = `${e.alunoId}_${e.turmaId}_${e.professorId || 'gen'}`;
+          pendentesMap.set(key, {
             ...e,
             alunoObj: alunosMap.get(e.alunoId),
             turmaObj: turmasMap.get(e.turmaId),
@@ -124,6 +125,12 @@ export default function LancarAtividadesPedagogoPage() {
       for (const aluno of alunosAtivosNoPeriodo) {
         const turma = turmasMap.get(aluno.turmaId);
         if (!turma) continue;
+
+        // Se já existe qualquer registro pendente para este aluno nesta turma, ignora para não duplicar
+        const jaExistePendente = Array.from(pendentesMap.values()).some(
+          (item) => item.alunoId === aluno.id && item.turmaId === turma.id
+        );
+        if (jaExistePendente) continue;
 
         const enviosAluno = enviosData.filter((e) => e.alunoId === aluno.id && e.turmaId === turma.id);
         const enviosCompletados = enviosAluno.filter((e) => e.status === 'enviado' || e.status === 'gerado_ia');
@@ -143,29 +150,27 @@ export default function LancarAtividadesPedagogoPage() {
 
         if (precisaEnviar) {
           const key = `${aluno.id}_${turma.id}_gen`;
-          if (!pendentesMap.has(key)) {
-            pendentesMap.set(key, {
-              id: `pending_${aluno.id}_${turma.id}`,
-              atividadeId: '',
-              alunoId: aluno.id,
-              alunoNome: aluno.nome,
-              professorId: '',
-              professorNome: 'Pendente',
-              turmaId: turma.id,
-              turmaNome: turma.nome,
-              disciplina: disciplinas[0] || 'Atividade Domiciliar',
-              versao: 1,
-              status: 'pendente',
-              arquivo: null,
-              comentarios: '',
-              dataEnvio: aluno.dataInicio || hojeStr,
-              horaEnvio: '07:00',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              alunoObj: aluno,
-              turmaObj: turma,
-            });
-          }
+          pendentesMap.set(key, {
+            id: `pending_${aluno.id}_${turma.id}`,
+            atividadeId: '',
+            alunoId: aluno.id,
+            alunoNome: aluno.nome,
+            professorId: '',
+            professorNome: 'Pendente',
+            turmaId: turma.id,
+            turmaNome: turma.nome,
+            disciplina: disciplinas[0] || 'Atividade Domiciliar',
+            versao: 1,
+            status: 'pendente',
+            arquivo: null,
+            comentarios: '',
+            dataEnvio: hojeStr,
+            horaEnvio: '07:00',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            alunoObj: aluno,
+            turmaObj: turma,
+          });
         }
       }
 
