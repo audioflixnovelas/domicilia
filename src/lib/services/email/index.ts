@@ -212,6 +212,8 @@ class ResendEmailService implements EmailService {
       <br>
       <p>Acesse o sistema e envie sua atividade.</p>
       <br>
+      <p>Em caso de j&aacute; ter enviado, desconsidere esse lembrete.</p>
+      <br>
       <p>Atenciosamente,<br>Sistema de Atividades Domiciliares - Col&eacute;gio Maluf.</p>
     `;
     return this.send(professorEmail, 'Lembrete: Último dia para envio das Atividades Domiciliares', html);

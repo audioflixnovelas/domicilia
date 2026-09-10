@@ -73,7 +73,7 @@ export async function syncAnnualRemindersForTeacher(
 
     const description = isThursday
       ? 'A partir de hoje inicia-se o prazo para envio das atividades domiciliares no DomicilIA (Colégio Maluf).'
-      : 'Hoje é o último dia para envio das atividades domiciliares no DomicilIA (Colégio Maluf).';
+      : 'Hoje é o último dia para envio das atividades domiciliares no DomicilIA (Colégio Maluf). Em caso de já ter enviado, desconsidere esse lembrete.';
 
     try {
       const res = await fetch(`${backendUrl}/events/create`, {
