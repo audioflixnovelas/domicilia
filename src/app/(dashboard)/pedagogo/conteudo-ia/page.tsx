@@ -105,13 +105,14 @@ export default function LancarAtividadesPedagogoPage() {
       const turmasMap = new Map(turmasData.map((t) => [t.id, t]));
 
       const alunosAtivosNoPeriodo = alunosData.filter(isPeriodoAtivoAluno);
-      const idsAlunosValidos = new Set(alunosAtivosNoPeriodo.map((a) => a.id));
+      const hojeStr = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 
-      const pendentes: EnvioPendenteExt[] = [];
+      const pendentesMap = new Map<string, EnvioPendenteExt>();
 
+      // Adiciona envios explicitamente marcados como pendentes
       for (const e of enviosData) {
-        if ((e.status === 'pendente' || e.status === 'atrasado') && idsAlunosValidos.has(e.alunoId)) {
-          pendentes.push({
+        if ((e.status === 'pendente' || e.status === 'atrasado') && isPeriodoAtivoAluno(alunosMap.get(e.alunoId) as Aluno)) {
+          pendentesMap.set(`${e.alunoId}_${e.turmaId}_${e.professorId || 'gen'}`, {
             ...e,
             alunoObj: alunosMap.get(e.alunoId),
             turmaObj: turmasMap.get(e.turmaId),
@@ -119,7 +120,56 @@ export default function LancarAtividadesPedagogoPage() {
         }
       }
 
-      setEnviosPendentes(pendentes);
+      // Calcula dinamicamente alunos no atestado que não enviaram há mais de 7 dias
+      for (const aluno of alunosAtivosNoPeriodo) {
+        const turma = turmasMap.get(aluno.turmaId);
+        if (!turma) continue;
+
+        const enviosAluno = enviosData.filter((e) => e.alunoId === aluno.id && e.turmaId === turma.id);
+        const enviosCompletados = enviosAluno.filter((e) => e.status === 'enviado' || e.status === 'gerado_ia');
+        const ultimoEnvio = enviosCompletados.sort((a, b) => (b.dataEnvio > a.dataEnvio ? 1 : -1))[0];
+
+        let precisaEnviar = false;
+        if (!ultimoEnvio) {
+          precisaEnviar = true;
+        } else if (ultimoEnvio.dataEnvio) {
+          const dataUltimo = new Date(ultimoEnvio.dataEnvio);
+          const dataHoje = new Date(hojeStr);
+          const diffDias = Math.floor((dataHoje.getTime() - dataUltimo.getTime()) / (1000 * 3600 * 24));
+          if (diffDias >= 7) {
+            precisaEnviar = true;
+          }
+        }
+
+        if (precisaEnviar) {
+          const key = `${aluno.id}_${turma.id}_gen`;
+          if (!pendentesMap.has(key)) {
+            pendentesMap.set(key, {
+              id: `pending_${aluno.id}_${turma.id}`,
+              atividadeId: '',
+              alunoId: aluno.id,
+              alunoNome: aluno.nome,
+              professorId: '',
+              professorNome: 'Pendente',
+              turmaId: turma.id,
+              turmaNome: turma.nome,
+              disciplina: disciplinas[0] || 'Atividade Domiciliar',
+              versao: 1,
+              status: 'pendente',
+              arquivo: null,
+              comentarios: '',
+              dataEnvio: aluno.dataInicio || hojeStr,
+              horaEnvio: '07:00',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              alunoObj: aluno,
+              turmaObj: turma,
+            });
+          }
+        }
+      }
+
+      setEnviosPendentes(Array.from(pendentesMap.values()));
     } catch (err) {
       console.error('Erro ao carregar dados:', err);
     } finally {

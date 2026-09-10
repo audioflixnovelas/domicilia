@@ -63,18 +63,69 @@ function ProfessorDashboardContent() {
       }
       setAlunosMap(map);
 
-      // Carrega envios do professor para alunos que ainda estão no período de atestado
+      // Carrega todos os envios deste professor
       const enviosData = await FirestoreService.query<Envio>(DOC_TYPES.ENVIO, [
         whereEqual('professorId', user!.id),
       ]);
 
-      const idsAlunosValidos = new Set(alunosAtivosNoPeriodo.map((a) => a.id));
+      const hojeStr = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 
-      const pendentesFiltrados = enviosData.filter(
-        (e) => (e.status === 'pendente' || e.status === 'atrasado') && idsAlunosValidos.has(e.alunoId)
-      );
+      // Calcula pendências dinamicamente com base na data do último envio
+      const pendentesCalculados: Envio[] = [];
 
-      setEnviosPendentes(pendentesFiltrados);
+      for (const t of turmasProfessor) {
+        const alunosTurma = map[t.id] || [];
+        for (const aluno of alunosTurma) {
+          const enviosAluno = enviosData.filter((e) => e.alunoId === aluno.id && e.turmaId === t.id);
+          const enviosCompletados = enviosAluno.filter((e) => e.status === 'enviado' || e.status === 'gerado_ia');
+
+          // Busca último envio do aluno para este professor
+          const ultimoEnvio = enviosCompletados.sort((a, b) => (b.dataEnvio > a.dataEnvio ? 1 : -1))[0];
+
+          // Se nunca enviou ou se o último envio tem mais de 6 dias
+          let precisaEnviar = false;
+          if (!ultimoEnvio) {
+            precisaEnviar = true;
+          } else if (ultimoEnvio.dataEnvio) {
+            const dataUltimo = new Date(ultimoEnvio.dataEnvio);
+            const dataHoje = new Date(hojeStr);
+            const diffDias = Math.floor((dataHoje.getTime() - dataUltimo.getTime()) / (1000 * 3600 * 24));
+            if (diffDias >= 7) {
+              precisaEnviar = true;
+            }
+          }
+
+          if (precisaEnviar) {
+            const envioPendenteExistente = enviosAluno.find((e) => e.status === 'pendente' || e.status === 'atrasado');
+            if (envioPendenteExistente) {
+              pendentesCalculados.push(envioPendenteExistente);
+            } else {
+              // Cria objeto de visualização pendente dinâmico
+              pendentesCalculados.push({
+                id: `pending_${aluno.id}_${t.id}`,
+                atividadeId: '',
+                alunoId: aluno.id,
+                alunoNome: aluno.nome,
+                professorId: user!.id,
+                professorNome: user!.name,
+                turmaId: t.id,
+                turmaNome: t.nome,
+                disciplina: user!.disciplinas?.[0] || 'Atividade Domiciliar',
+                versao: 1,
+                status: 'pendente',
+                arquivo: null,
+                comentarios: '',
+                dataEnvio: aluno.dataInicio || hojeStr,
+                horaEnvio: '07:00',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              });
+            }
+          }
+        }
+      }
+
+      setEnviosPendentes(pendentesCalculados);
 
       // Carrega config global
       const configs = await FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO);
