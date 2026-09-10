@@ -18,7 +18,7 @@ import { syncAnnualRemindersForTeacher } from '@/lib/services/calendar-reminders
 function ProfessorDashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [alunosMap, setAlunosMap] = useState<Record<string, Aluno[]>>({});
@@ -110,18 +110,22 @@ function ProfessorDashboardContent() {
       const data = await res.json();
       if (data.oauthTokensJson) {
         if (user?.id) {
-          const updatedTeacher = { ...user, googleOAuthTokensJson: data.oauthTokensJson };
           await FirestoreService.update(user.id, {
             googleOAuthTokensJson: data.oauthTokensJson,
           });
 
+          const updatedTeacher = { ...user, googleOAuthTokensJson: data.oauthTokensJson };
+          await refreshUser();
+
           // Sincroniza automaticamente todos os lembretes anuais na agenda deste professor
           if (configToUse) {
-            setOauthNotice('✅ Conta vinculada! Gerando automaticamente todos os lembretes na sua Google Agenda...');
-            await syncAnnualRemindersForTeacher(updatedTeacher, configToUse);
+            setOauthNotice('✅ Conta vinculada! Criando automaticamente todos os lembretes do ano na sua Google Agenda...');
+            const syncRes = await syncAnnualRemindersForTeacher(updatedTeacher, configToUse);
+            setOauthNotice(`✅ Vínculo concluído! ${syncRes.successCount} lembretes criados com sucesso na sua Google Agenda.`);
+          } else {
+            setOauthNotice('✅ Sua conta Google individual foi vinculada com sucesso ao DomicilIA!');
           }
         }
-        setOauthNotice('✅ Sua conta Google individual foi vinculada e todas as datas do ano foram registradas na sua agenda!');
         setTimeout(() => setOauthNotice(''), 6000);
         router.replace('/professor');
       } else {
