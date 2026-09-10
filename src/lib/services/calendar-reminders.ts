@@ -72,8 +72,8 @@ export async function syncAnnualRemindersForTeacher(
       : 'Último dia para envio de atividades domiciliares';
 
     const description = isThursday
-      ? 'A partir de hoje inicia-se o prazo para envio das atividades domiciliares no DomicilIA (Colégio Maluf).'
-      : 'Hoje é o último dia para envio das atividades domiciliares no DomicilIA (Colégio Maluf). Em caso de já ter enviado, desconsidere esse lembrete.';
+      ? 'A partir de hoje inicia-se o prazo para envio das atividades domiciliares no DomicilIA (Colégio Maluf). Acesse o sistema: https://domicilia.systematrix.com.br/login'
+      : 'Hoje é o último dia para envio das atividades domiciliares no DomicilIA (Colégio Maluf). Acesse o sistema: https://domicilia.systematrix.com.br/login - Em caso de já ter enviado, desconsidere esse lembrete.';
 
     try {
       const res = await fetch(`${backendUrl}/events/create`, {

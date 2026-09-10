@@ -197,7 +197,7 @@ class ResendEmailService implements EmailService {
       <br>
       <p>&Uacute;ltimo dia de prazo para envio: quarta-feira (daqui 6 dias).</p>
       <br>
-      <p>Acesse o sistema e envie sua atividade.</p>
+      <p>Acesse o sistema e envie sua atividade: <a href="https://domicilia.systematrix.com.br/login">https://domicilia.systematrix.com.br/login</a></p>
       <br>
       <p>Atenciosamente,<br>Sistema de Atividades Domiciliares - Col&eacute;gio Maluf.</p>
     `;
@@ -210,7 +210,7 @@ class ResendEmailService implements EmailService {
       <br>
       <p>Hoje &eacute; o &uacute;ltimo prazo para envio das atividades domiciliares!</p>
       <br>
-      <p>Acesse o sistema e envie sua atividade.</p>
+      <p>Acesse o sistema e envie sua atividade: <a href="https://domicilia.systematrix.com.br/login">https://domicilia.systematrix.com.br/login</a></p>
       <br>
       <p>Em caso de j&aacute; ter enviado, desconsidere esse lembrete.</p>
       <br>
