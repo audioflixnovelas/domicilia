@@ -148,34 +148,76 @@ async function handleRemindersCron(request: NextRequest) {
     let emailsEnviados = 0;
 
     if (targetDayToSend === 'quinta') {
-      // Quando for disparado os e-mails de QUINTA-FEIRA, trocar o status de "Em dia" para "Pendente"
+      // Todas as quintas, gerar status 'pendente' para todas as matérias/professores dos alunos em atestado
       for (const aluno of alunosAtivos) {
         const turma = todasTurmas.find((t) => t.id === aluno.turmaId);
         if (!turma) continue;
 
-        const alunoEnvios = todosEnvios.filter((e) => e.alunoId === aluno.id && e.turmaId === turma.id);
-        const temPendente = alunoEnvios.some((e) => e.status === 'pendente');
+        const profsTurma = todosProfessores.filter(
+          (p) => turma.professorIds?.includes(p.id) || p.turmaIds?.includes(turma.id)
+        );
 
-        if (!temPendente) {
-          const novoEnvioData = {
-            atividadeId: '',
-            alunoId: aluno.id,
-            professorId: turma.professorIds?.[0] || '',
-            professorNome: '',
-            professorEmail: '',
-            turmaId: turma.id,
-            disciplina: 'Atividade Domiciliar',
-            versao: 1,
-            status: 'pendente' as const,
-            arquivo: null,
-            comentarios: '',
-            dataEnvio: dateStr,
-            horaEnvio: getCurrentTime(),
-            pedagogoId: turma.pedagogoId || '',
-            alunoNome: aluno.nome,
-            turmaNome: turma.nome,
-          };
-          await FirestoreService.create<Envio>(DOC_TYPES.ENVIO, novoEnvioData);
+        // Se a turma tiver professores vinculados, cria um registro pendente para cada professor/matéria
+        if (profsTurma.length > 0) {
+          for (const prof of profsTurma) {
+            const envioPendenteExistente = todosEnvios.find(
+              (e) =>
+                e.alunoId === aluno.id &&
+                e.turmaId === turma.id &&
+                e.professorId === prof.id &&
+                e.status === 'pendente' &&
+                e.dataEnvio === dateStr
+            );
+
+            if (!envioPendenteExistente) {
+              const novoEnvioData = {
+                atividadeId: '',
+                alunoId: aluno.id,
+                professorId: prof.id,
+                professorNome: prof.name,
+                professorEmail: prof.email,
+                turmaId: turma.id,
+                disciplina: prof.disciplinas?.[0] || 'Atividade Domiciliar',
+                versao: 1,
+                status: 'pendente' as const,
+                arquivo: null,
+                comentarios: '',
+                dataEnvio: dateStr,
+                horaEnvio: getCurrentTime(),
+                pedagogoId: turma.pedagogoId || '',
+                alunoNome: aluno.nome,
+                turmaNome: turma.nome,
+              };
+              await FirestoreService.create<Envio>(DOC_TYPES.ENVIO, novoEnvioData);
+            }
+          }
+        } else {
+          // Se não houver professor específico atribuído, gera pendência genérica da turma
+          const temPendente = todosEnvios.some(
+            (e) => e.alunoId === aluno.id && e.turmaId === turma.id && e.status === 'pendente' && e.dataEnvio === dateStr
+          );
+
+          if (!temPendente) {
+            const novoEnvioData = {
+              atividadeId: '',
+              alunoId: aluno.id,
+              professorId: '',
+              professorNome: 'Geral',
+              professorEmail: '',
+              turmaId: turma.id,
+              disciplina: 'Atividade Domiciliar',
+              versao: 1,
+              status: 'pendente' as const,
+              arquivo: null,
+              comentarios: '',
+              dataEnvio: dateStr,
+              horaEnvio: getCurrentTime(),
+              pedagogoId: turma.pedagogoId || '',
+              alunoNome: aluno.nome,
+              turmaNome: turma.nome,
+            };
+            await FirestoreService.create<Envio>(DOC_TYPES.ENVIO, novoEnvioData);
+          }
         }
       }
 
