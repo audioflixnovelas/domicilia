@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/Badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table';
 import { PageLoading } from '@/components/ui/Loading';
 import { FirestoreService, DOC_TYPES, whereEqual } from '@/lib/services/firestore';
-import { Turma, Aluno, Envio, ConfiguracaoGlobal } from '@/types';
+import { AuthService } from '@/lib/services/auth';
+import { Turma, Aluno, Envio, ConfiguracaoGlobal, User } from '@/types';
 import { formatDate, isPeriodoAtivoAluno } from '@/lib/utils';
 import { syncAnnualRemindersForTeacher } from '@/lib/services/calendar-reminders';
 
@@ -33,13 +34,13 @@ function ProfessorDashboardContent() {
   }, [user]);
 
   useEffect(() => {
-    // Processa callback OAuth se reencaminhado com 'code'
+    // Processa callback OAuth se reencaminhado com 'code' e com usuário já carregado
     const code = searchParams.get('code');
-    if (code && processedCodeRef.current !== code) {
+    if (code && user && processedCodeRef.current !== code) {
       processedCodeRef.current = code;
       handleOAuthCallback(code);
     }
-  }, [searchParams]);
+  }, [searchParams, user]);
 
   const loadDashboardData = async () => {
     try {
@@ -109,12 +110,27 @@ function ProfessorDashboardContent() {
 
       const data = await res.json();
       if (data.oauthTokensJson) {
-        if (user?.id) {
-          await FirestoreService.update(user.id, {
+        const teacherDocId = user?.id || user?.uid || AuthService.getCurrentUser()?.uid;
+        if (teacherDocId) {
+          await FirestoreService.update(teacherDocId, {
             googleOAuthTokensJson: data.oauthTokensJson,
           });
 
-          const updatedTeacher = { ...user, googleOAuthTokensJson: data.oauthTokensJson };
+          const updatedTeacher: User = {
+            ...(user || {
+              id: teacherDocId,
+              uid: teacherDocId,
+              email: AuthService.getCurrentUser()?.email || '',
+              name: AuthService.getCurrentUser()?.displayName || 'Professor',
+              role: 'professor',
+              active: true,
+              createdAt: '',
+              updatedAt: '',
+              type: 'user',
+            }),
+            googleOAuthTokensJson: data.oauthTokensJson,
+          };
+
           await refreshUser();
 
           // Sincroniza automaticamente todos os lembretes anuais na agenda deste professor
@@ -125,6 +141,8 @@ function ProfessorDashboardContent() {
           } else {
             setOauthNotice('✅ Sua conta Google individual foi vinculada com sucesso ao DomicilIA!');
           }
+        } else {
+          setOauthNotice('✅ Autorização obtida! Por favor, recarregue para salvar no seu perfil.');
         }
         setTimeout(() => setOauthNotice(''), 6000);
         router.replace('/professor');
