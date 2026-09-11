@@ -88,9 +88,15 @@ export default function NovoProfessorPage() {
           user!.id,
         ])).filter(Boolean) as string[];
 
+        const pedagogoDisciplinasUpdated = {
+          ...(existingUser.pedagogoDisciplinas || {}),
+          [user!.id]: formData.disciplinas,
+        };
+
         await FirestoreService.update(userId, {
           turmaIds: novasTurmas,
           disciplinas: novasDisciplinas,
+          pedagogoDisciplinas: pedagogoDisciplinasUpdated,
           pedagogoIds: novosPedagogos,
           active: true, // Garante que o professor esteja ativo
         });
@@ -110,6 +116,7 @@ export default function NovoProfessorPage() {
             pedagogoIds: [user!.id],
             turmaIds: formData.turmaIds,
             disciplinas: formData.disciplinas,
+            pedagogoDisciplinas: { [user!.id]: formData.disciplinas },
           });
 
           // Envia email de boas-vindas apenas para novos
@@ -144,6 +151,7 @@ export default function NovoProfessorPage() {
               pedagogoIds: [user!.id],
               turmaIds: formData.turmaIds,
               disciplinas: formData.disciplinas,
+              pedagogoDisciplinas: { [user!.id]: formData.disciplinas },
             });
           } else {
             throw authErr;

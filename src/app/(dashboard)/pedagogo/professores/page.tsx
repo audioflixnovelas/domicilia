@@ -134,7 +134,9 @@ export default function ProfessoresPage() {
                   </TableCell>
                   <TableCell>{professor.email}</TableCell>
                   <TableCell>{getTurmasNomes(professor.turmaIds)}</TableCell>
-                  <TableCell>{professor.disciplinas?.join(', ') || '-'}</TableCell>
+                  <TableCell>
+                    {(professor.pedagogoDisciplinas?.[user!.id] || professor.disciplinas)?.join(', ') || '-'}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={professor.active ? 'success' : 'danger'}>
                       {professor.active ? 'Ativo' : 'Inativo'}

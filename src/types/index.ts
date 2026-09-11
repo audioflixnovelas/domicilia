@@ -14,6 +14,7 @@ export interface User {
   pedagogoIds?: string[];
   turmaIds?: string[];
   disciplinas?: string[];
+  pedagogoDisciplinas?: Record<string, string[]>;
   googleOAuthTokensJson?: string;
   googleCalendarId?: string;
 }

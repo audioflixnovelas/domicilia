@@ -53,11 +53,15 @@ export default function EditarProfessorPage() {
 
       if (professorData) {
         const tIds = professorData.turmaIds || [];
+        // Se a pedagoga tiver disciplinas gravadas em pedagogoDisciplinas, carrega apenas as suas
+        const disciplinasPedagoga =
+          professorData.pedagogoDisciplinas?.[user!.id] || professorData.disciplinas || [];
+
         setFormData({
           name: professorData.name,
           email: professorData.email,
           turmaIds: tIds,
-          disciplinas: professorData.disciplinas || [],
+          disciplinas: disciplinasPedagoga,
         });
         setTurmaIdsAntigos(tIds);
       }
@@ -79,12 +83,28 @@ export default function EditarProfessorPage() {
     setSaving(true);
 
     try {
+      const professorData = await FirestoreService.getById<User>(id);
+      const existingPedagogoDisciplinas = professorData?.pedagogoDisciplinas || {};
+      const updatedPedagogoDisciplinas = {
+        ...existingPedagogoDisciplinas,
+        [user!.id]: formData.disciplinas,
+      };
+
+      // Recalcula o total unificado de disciplinas de todos os pedagogos do professor
+      const todasDisciplinas = Array.from(
+        new Set([
+          ...(professorData?.disciplinas || []),
+          ...Object.values(updatedPedagogoDisciplinas).flat(),
+        ])
+      );
+
       // Atualiza o professor
       await FirestoreService.update(id, {
         name: formData.name,
         email: formData.email,
         turmaIds: formData.turmaIds,
-        disciplinas: formData.disciplinas,
+        disciplinas: todasDisciplinas,
+        pedagogoDisciplinas: updatedPedagogoDisciplinas,
       });
 
       // Remove professor das turmas removidas
