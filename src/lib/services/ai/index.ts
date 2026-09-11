@@ -6,6 +6,43 @@ export interface AIProvider {
   generateActivity(prompt: string, config: ConfiguracaoGlobal): Promise<string>;
 }
 
+export function cleanLatexMath(text: string): string {
+  if (!text) return text;
+  return text
+    // Remove delimitadores de bloco/inline LaTeX
+    .replace(/\\\[\s*/g, '')
+    .replace(/\s*\\\]/g, '')
+    .replace(/\\\(\s*/g, '')
+    .replace(/\s*\\\)/g, '')
+    // Substitui frações \frac{num}{den} por num / den
+    .replace(/\\frac\s*\{([^}]+)\}\s*\{([^}]+)\}/g, '($1 / $2)')
+    // Substitui funções trigonométricas e comandos comuns
+    .replace(/\\text\s*\{([^}]+)\}/g, '$1')
+    .replace(/\\sen\b|\\sin\b/g, 'sen')
+    .replace(/\\cos\b/g, 'cos')
+    .replace(/\\tan\b|\\tg\b/g, 'tan')
+    .replace(/\\theta\b/g, 'θ')
+    .replace(/\\alpha\b/g, 'α')
+    .replace(/\\beta\b/g, 'β')
+    .replace(/\\gamma\b/g, 'γ')
+    .replace(/\\pi\b/g, 'π')
+    .replace(/\\sqrt\s*\{([^}]+)\}/g, '√($1)')
+    .replace(/\\sqrt\b/g, '√')
+    .replace(/\\times\b/g, '×')
+    .replace(/\\cdot\b/g, '·')
+    .replace(/\\pm\b/g, '±')
+    .replace(/\\neq\b/g, '≠')
+    .replace(/\\leq\b/g, '≤')
+    .replace(/\\geq\b/g, '≥')
+    .replace(/\\approx\b/g, '≈')
+    // Substitui exponenciais comuns como ^2 por ²
+    .replace(/\^2\b/g, '²')
+    .replace(/\^3\b/g, '³')
+    .replace(/\^([0-9a-zA-Z]+)/g, '^$1')
+    // Limpa barras invertidas sobrando em símbolos
+    .replace(/\\/g, '');
+}
+
 interface QueueItem {
   id: string;
   prompt: string;
@@ -33,21 +70,41 @@ class LLM7Provider implements AIProvider {
         messages: [
           {
             role: 'system',
-            content: `Você é um professor renomado, rigoroso e extremamente didático de escolas de excelência. Seu objetivo é elaborar atividades domiciliares de ALTA QUALIDADE PEDAGÓGICA, aprofundadas, enriquecedoras e totalmente livres de erros conceituais ou contradições matemáticas.
+            content: `Você é um professor renomado, autor de materiais didáticos de excelência e especialista em ensino domiciliar adaptado. Seu objetivo é elaborar atividades domiciliares COMPLETAS, APROFUNDADAS, DE ALTA QUALIDADE PEDAGÓGICA e TOTALMENTE LIVRES de símbolos LaTeX ou contradições.
 
-DIRETRIZES DE RIGOR CONCEITUAL E MATEMÁTICO:
-1. RIGOR ABSOLUTO: NUNCA crie contradições matemáticas ou conceituais. Exemplo absurdo que NUNCA deve ocorrer: "triângulo retângulo equilátero" (um triângulo retângulo jamais é equilátero). Respeite as definições reais da disciplina.
-2. FORMATAÇÃO LIMPA: JAMAIS utilize notação LaTeX (como \\(, \\), \\frac, \\sin, \\cos, \\tan, \\theta, ^2). Escreva todas as fórmulas em português simples e legível (ex: a² + b² = c², sen(x) = oposto / hipotenusa).
-3. SEM DESENHOS ASCII: NUNCA tente desenhar figuras com caracteres ASCII (não use traços, barras invertidas como |\\, +---+).
-4. RESUMO TEÓRICO ENRIQUECIDO: A seção "## Resumo Teórico do Conteúdo" deve ser rica, bem estruturada e explicativa. Deve conter definições claras, propriedades, fórmulas principais e um EXEMPLO RESOLVIDO PASSO A PASSO.
-5. DIVERSIFICAÇÃO DE QUESTÕES: Crie de 6 a 10 questões desafiadoras e contextualizadas (problemas do cotidiano, questões conceituais, questões dissertativas e questões de múltipla escolha bem elaboradas).
-6. ESPAÇO PARA RESPOSTA: Insira uma única linha de resposta (___) por questão dissertativa ou de cálculo.
-7. NÃO inclua gabarito final nem cabeçalho padrão de dados do aluno (o sistema já adiciona o cabeçalho oficial).`,
+DIRETRIZES FUNDAMENTAIS DE QUALIDADE E CONTEÚDO:
+1. RESUMO TEÓRICO COMPLETO E DENSO:
+   - A seção "## Resumo Teórico do Conteúdo" DEVE SER RICA E APROFUNDADA (mínimo de 3 a 5 parágrafos e subseções detalhadas).
+   - Apresente todas as definições fundamentais, propriedades, teoremas e TODAS as fórmulas do assunto.
+   - Para tópicos de Matemática (ex: Relações Métricas no Triângulo Retângulo), detalhe obrigatoriamente:
+     * Teorema de Pitágoras: a² = b² + c²
+     * Relação da Altura: h² = m . n
+     * Relações dos Catetos: b² = a . m e c² = a . n
+     * Produto dos Catetos e Hipotenusa: a . h = b . c
+     * Relações Trigonométricas: sen(x) = oposto/hipotenusa, cos(x) = adjacente/hipotenusa, tan(x) = oposto/adjacente
+   - Inclua pelo menos 2 EXEMPLOS RESOLVIDOS PASSO A PASSO detalhados no resumo teórico antes das questões.
+
+2. ZERO LATEX / SÍMBOLOS MATEMÁTICOS LIMPOS EM PORTUGUÊS:
+   - PROIBIDO usar código ou tags LaTeX (NUNCA use \\[, \\], \\(, \\), \\frac{}, \\sin, \\cos, \\tan, \\theta, \\sqrt{}, ^2 ou barras invertidas).
+   - Escreva TODAS as fórmulas em texto legível e formatado em português:
+     * "a² + b² = c²" ou "c² = a² + b²"
+     * "sen(x) = oposto / hipotenusa"
+     * "cos(x) = adjacente / hipotenusa"
+     * "tan(x) = oposto / adjacente"
+     * "b = √(16) = 4" ou "b = raiz(16) = 4"
+
+3. QUESTÕES DESAFIADORAS E DIVERSIFICADAS:
+   - Crie de 8 a 10 questões bem elaboradas (mesclando questões conceituais, dissertativas, de cálculo prático e de múltipla escolha contextualizadas).
+   - Insira uma única linha de resposta (___) para cada questão dissertativa ou de cálculo.
+
+4. SEM DESENHOS ASCII / SEM GABARITO:
+   - NUNCA tente desenhar figuras com caracteres ASCII. Use apenas legendas como [Figura: Triângulo retângulo ABC com ângulo reto em A].
+   - NÃO inclua gabarito no final nem cabeçalhos de dados do aluno.`,
           },
           { role: 'user', content: prompt },
         ],
         temperature: 0.6,
-        max_tokens: 2500,
+        max_tokens: 3500,
       }),
     });
 
@@ -60,7 +117,8 @@ DIRETRIZES DE RIGOR CONCEITUAL E MATEMÁTICO:
     }
 
     const data = await response.json();
-    return data.choices[0]?.message?.content || 'Nao foi possivel gerar a atividade.';
+    let content = data.choices[0]?.message?.content || 'Nao foi possivel gerar a atividade.';
+    return cleanLatexMath(content);
   }
 }
 
