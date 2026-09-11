@@ -210,8 +210,9 @@ export async function gerarDOCX(atividade: AtividadeData): Promise<Buffer> {
   for (const imgUrl of listaImagensDocx) {
     try {
       if (typeof window === 'undefined') {
-        // Dynamic import no servidor Node.js
-        const sharp = (await import('sharp')).default;
+        // Dynamic eval require no servidor Node.js para evitar falha de tipagem no bundler client-side Turbopack
+        const sharpModule = 'sharp';
+        const sharp = eval('require')(sharpModule);
         let pngBuffer: Buffer;
         if (imgUrl.startsWith('data:image/svg+xml')) {
           const svgContent = imgUrl.includes('base64,')
