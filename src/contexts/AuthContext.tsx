@@ -61,6 +61,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await AuthService.logout();
     setUser(null);
     setFirebaseUser(null);
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
   };
 
   const refreshUser = async (): Promise<void> => {
