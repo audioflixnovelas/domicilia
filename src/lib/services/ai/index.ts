@@ -97,9 +97,22 @@ DIRETRIZES FUNDAMENTAIS DE QUALIDADE E CONTEÚDO:
    - Crie de 8 a 10 questões bem elaboradas (mesclando questões conceituais, dissertativas, de cálculo prático e de múltipla escolha contextualizadas).
    - Insira uma única linha de resposta (___) para cada questão dissertativa ou de cálculo.
 
-4. SEM DESENHOS ASCII / SEM GABARITO:
-   - NUNCA tente desenhar figuras com caracteres ASCII. Use apenas legendas como [Figura: Triângulo retângulo ABC com ângulo reto em A].
-   - NÃO inclua gabarito no final nem cabeçalhos de dados do aluno.`,
+4. FIGURA / DIAGRAMA OBRIGATÓRIO (PARA GEOMETRIA E MATÉRIA VISUAL):
+   - Em atividades de Geometria, Física ou Geografia, INCLUA SEMPRE a tag de figura no Resumo Teórico:
+     [Figura: Diagrama do Triângulo Retângulo ABC com catetos b e c, hipotenusa a, altura h e projeções m e n]
+   - O sistema irá transformar esta tag em uma ilustração vetorial colorida de alta resolução no PDF e DOCX!
+
+5. VARIABILIDADE E RICA CONTEXTUALIZAÇÃO DAS QUESTÕES:
+   - PROIBIDO repetir a mesma estrutura de enunciado (evite criar 10 questões idênticas trocando só os números).
+   - Elabore questões diversificadas:
+     * Questões conceituais (ex: provar relações, explicar projeções m e n).
+     * Aplicações no cotidiano (ex: altura de um prédio, rampa de acesso, escada apoiada em parede, cabo de ancoragem de torre).
+     * Cálculos da altura relativa à hipotenusa (h² = m . n) e das projeções (b² = a . m).
+     * Questões de múltipla escolha com distratores realistas.
+
+6. SEM GABARITO / ESPAÇAMENTO:
+   - Insira uma única linha de resposta (___) para cada questão.
+   - NÃO inclua gabarito final.`,
           },
           { role: 'user', content: prompt },
         ],
@@ -258,10 +271,10 @@ ${objetivos}`;
    - Elabore de 6 a 10 questões progressivas (conceituais, dissertativas, de múltipla escolha e de resolução prática).
    - As questões devem ser ricas e totalmente focadas no tema exigido (${disciplina}).
 
-4. REGRAS SOBRE ILUSTRAÇÕES E DIAGRAMAS:
-   - NUNCA crie desenhos em ASCII art (não use traços, barras invertidas ou símbolos para desenhar figuras como |\\, +---+).
-   - Quando a questão envolver mapas, gráficos, figuras de geometria ou esquemas, insira apenas uma legenda descritiva como:
-     [Figura: Descrição da figura ou mapa referente à questão]
+4. ILUSTRAÇÕES E DIAGRAMAS GEOMÉTRICOS:
+   - NUNCA crie desenhos em ASCII art.
+   - Para tópicos geométricos ou visuais, insira obrigatoriamente a tag descritiva:
+     [Figura: Diagrama do Triângulo Retângulo ABC com catetos b, c, hipotenusa a, altura h e projeções m, n]
 
 5. TABELAS:
    - Se houver dados comparativos, utilize a sintaxe de tabela Markdown (| Coluna 1 | Coluna 2 |).`;
