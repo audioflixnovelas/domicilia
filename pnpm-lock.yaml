@@ -72,9 +72,6 @@ importers:
       '@types/react-dom':
         specifier: ^19
         version: 19.2.4(@types/react@19.2.18)
-      '@types/sharp':
-        specifier: ^0.32.0
-        version: 0.32.0
       '@types/uuid':
         specifier: ^10.0.0
         version: 10.0.0
@@ -921,10 +918,6 @@ packages:
 
   '@types/react@19.2.18':
     resolution: {integrity: sha512-AnzbBERsrLKtk2XSfTbYRLjQPdy116Sty4q+T+Bp3IC4l6jNBvreVPAHmpq9qhXQM7CXZPjLVmGMw9sy+hxQ3w==}
-
-  '@types/sharp@0.32.0':
-    resolution: {integrity: sha512-OOi3kL+FZDnPhVzsfD37J88FNeZh6gQsGcLc95NbeURRGvmSjeXiDcyWzF2o3yh/gQAUn2uhh/e+CPCa5nwAxw==}
-    deprecated: This is a stub types definition. sharp provides its own type definitions, so you do not need this installed.
 
   '@types/trusted-types@2.0.7':
     resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
@@ -3377,7 +3370,8 @@ snapshots:
 
   '@humanwhocodes/retry@0.4.3': {}
 
-  '@img/colour@1.1.0': {}
+  '@img/colour@1.1.0':
+    optional: true
 
   '@img/sharp-darwin-arm64@0.34.5':
     optionalDependencies:
@@ -3719,10 +3713,6 @@ snapshots:
   '@types/react@19.2.18':
     dependencies:
       csstype: 3.2.3
-
-  '@types/sharp@0.32.0':
-    dependencies:
-      sharp: 0.34.5
 
   '@types/trusted-types@2.0.7':
     optional: true
@@ -5605,6 +5595,7 @@ snapshots:
       '@img/sharp-win32-arm64': 0.34.5
       '@img/sharp-win32-ia32': 0.34.5
       '@img/sharp-win32-x64': 0.34.5
+    optional: true
 
   shebang-command@2.0.0:
     dependencies:
