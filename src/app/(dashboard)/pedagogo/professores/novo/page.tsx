@@ -97,35 +97,58 @@ export default function NovoProfessorPage() {
       } else {
         const tempPassword = formData.password || generateId();
 
-        userId = await AuthService.register(
-          formData.email,
-          tempPassword,
-          formData.name,
-          'professor'
-        );
+        try {
+          userId = await AuthService.register(
+            formData.email,
+            tempPassword,
+            formData.name,
+            'professor'
+          );
 
-        await FirestoreService.update(userId, {
-          pedagogoId: user!.id,
-          pedagogoIds: [user!.id],
-          turmaIds: formData.turmaIds,
-          disciplinas: formData.disciplinas,
-        });
+          await FirestoreService.update(userId, {
+            pedagogoId: user!.id,
+            pedagogoIds: [user!.id],
+            turmaIds: formData.turmaIds,
+            disciplinas: formData.disciplinas,
+          });
 
-        // Envia email de boas-vindas apenas para novos
-        await emailService.sendWelcome(
-          {
-            id: userId,
-            uid: userId,
-            type: 'user',
-            email: formData.email,
-            name: formData.name,
-            role: 'professor',
-            active: true,
-            createdAt: '',
-            updatedAt: '',
-          },
-          tempPassword
-        );
+          // Envia email de boas-vindas apenas para novos
+          await emailService.sendWelcome(
+            {
+              id: userId,
+              uid: userId,
+              type: 'user',
+              email: formData.email,
+              name: formData.name,
+              role: 'professor',
+              active: true,
+              createdAt: '',
+              updatedAt: '',
+            },
+            tempPassword
+          );
+        } catch (authErr: any) {
+          // Se o e-mail já existe no Firebase Auth (auth/email-already-in-use)
+          if (authErr.code === 'auth/email-already-in-use' || authErr.message?.includes('already-in-use')) {
+            // Cria/atualiza apenas o perfil na coleção de usuários do Firestore sem re-criar a conta Auth
+            const docId = generateId();
+            userId = docId;
+
+            await FirestoreService.createAtId<User>(docId, DOC_TYPES.USER, {
+              uid: docId,
+              email: formData.email,
+              name: formData.name,
+              role: 'professor',
+              active: true,
+              pedagogoId: user!.id,
+              pedagogoIds: [user!.id],
+              turmaIds: formData.turmaIds,
+              disciplinas: formData.disciplinas,
+            });
+          } else {
+            throw authErr;
+          }
+        }
       }
 
       // Associa o professor às turmas selecionadas
