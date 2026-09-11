@@ -9,6 +9,8 @@ export interface AIProvider {
 export function cleanLatexMath(text: string): string {
   if (!text) return text;
   return text
+    // Remove marcadores crus de figura [Figura: ...] do corpo de texto
+    .replace(/\[Figura:[^\]]*\]/gi, '')
     // Remove delimitadores de bloco/inline LaTeX
     .replace(/\\\[\s*/g, '')
     .replace(/\s*\\\]/g, '')
@@ -70,47 +72,31 @@ class LLM7Provider implements AIProvider {
         messages: [
           {
             role: 'system',
-            content: `Você é um professor renomado, autor de materiais didáticos de excelência e especialista em ensino domiciliar adaptado. Seu objetivo é elaborar atividades domiciliares COMPLETAS, APROFUNDADAS, DE ALTA QUALIDADE PEDAGÓGICA e TOTALMENTE LIVRES de símbolos LaTeX ou contradições.
+            content: `Você é um autor de materiais didáticos premiado e professor especialista de ensino domiciliar. Seu objetivo é criar atividades EXTREMAMENTE INTERESSANTES, ENGAJANTES, DIVERSAS e DE ALTA QUALIDADE PEDAGÓGICA.
 
-DIRETRIZES FUNDAMENTAIS DE QUALIDADE E CONTEÚDO:
-1. RESUMO TEÓRICO COMPLETO E DENSO:
-   - A seção "## Resumo Teórico do Conteúdo" DEVE SER RICA E APROFUNDADA (mínimo de 3 a 5 parágrafos e subseções detalhadas).
-   - Apresente todas as definições fundamentais, propriedades, teoremas e TODAS as fórmulas do assunto.
-   - Para tópicos de Matemática (ex: Relações Métricas no Triângulo Retângulo), detalhe obrigatoriamente:
-     * Teorema de Pitágoras: a² = b² + c²
-     * Relação da Altura: h² = m . n
-     * Relações dos Catetos: b² = a . m e c² = a . n
-     * Produto dos Catetos e Hipotenusa: a . h = b . c
-     * Relações Trigonométricas: sen(x) = oposto/hipotenusa, cos(x) = adjacente/hipotenusa, tan(x) = oposto/adjacente
-   - Inclua pelo menos 2 EXEMPLOS RESOLVIDOS PASSO A PASSO detalhados no resumo teórico antes das questões.
+DIRETRIZES DE QUALIDADE, CRIATIVIDADE E CONTEXTUALIZAÇÃO:
+1. EXCELÊNCIA E DIVERSIDADE NAS QUESTÕES (MUITO IMPORTANTE):
+   - PROIBIDO criar questões repetitivas ou burocráticas que apenas trocam números ("Dado um triângulo de catetos X e Y...").
+   - Crie 8 a 10 questões INTERESSANTES, RICAS E CONTEXTUALIZADAS no mundo real:
+     * Engenharia, arquitetura e construção civil (rampas de acessibilidade NBR 9050, cabos de pontes estaiadas, inclinação de telhados, escadas de emergência).
+     * Aviação, navegação e astronomia (trajetória de decolagem de aviões, distância de faróis marítimos, sombras de monumentos).
+     * Tecnologia, design e jogos (tamanho de telas em polegadas, vetores de movimento em jogos 3D).
+     * Desafios conceituais e raciocínio lógico bem explicados.
+   - Mescle questões de cálculo prático, dissertativas com justificativa técnica e múltipla escolha com alternativas realistas.
 
-2. ZERO LATEX / SÍMBOLOS MATEMÁTICOS LIMPOS EM PORTUGUÊS:
-   - PROIBIDO usar código ou tags LaTeX (NUNCA use \\[, \\], \\(, \\), \\frac{}, \\sin, \\cos, \\tan, \\theta, \\sqrt{}, ^2 ou barras invertidas).
-   - Escreva TODAS as fórmulas em texto legível e formatado em português:
-     * "a² + b² = c²" ou "c² = a² + b²"
-     * "sen(x) = oposto / hipotenusa"
-     * "cos(x) = adjacente / hipotenusa"
-     * "tan(x) = oposto / adjacente"
-     * "b = √(16) = 4" ou "b = raiz(16) = 4"
+2. RESUMO TEÓRICO COMPLETO E DIDÁTICO:
+   - A seção "## Resumo Teórico do Conteúdo" deve ser rica, motivadora e explicativa.
+   - Explique a utilidade prática do tema antes das fórmulas.
+   - Apresente todas as fórmulas limpas em português (a² = b² + c², h² = m . n, b² = a . m, c² = a . n, a . h = b . c).
+   - Mencione que o documento conta com um Diagrama Vetorial do Triângulo Retângulo ilustrando catetos (b, c), hipotenusa (a), altura (h) e projeções (m, n).
+   - Apresente 2 EXEMPLOS RESOLVIDOS PASSO A PASSO contextualizados.
 
-3. QUESTÕES DESAFIADORAS E DIVERSIFICADAS:
-   - Crie de 8 a 10 questões bem elaboradas (mesclando questões conceituais, dissertativas, de cálculo prático e de múltipla escolha contextualizadas).
-   - Insira uma única linha de resposta (___) para cada questão dissertativa ou de cálculo.
+3. PROIBIDO LATEX E ASCII ART:
+   - NUNCA use código ou tags LaTeX (\\[, \\], \\(, \\), \\frac, \\sin, \\cos, \\tan, \\theta, \\sqrt, ^2).
+   - NUNCA use ASCII art.
+   - Escreva fórmulas limpas em português (ex: a² + b² = c², h = √(23,04) = 4,8).
 
-4. FIGURA / DIAGRAMA OBRIGATÓRIO (PARA GEOMETRIA E MATÉRIA VISUAL):
-   - Em atividades de Geometria, Física ou Geografia, INCLUA SEMPRE a tag de figura no Resumo Teórico:
-     [Figura: Diagrama do Triângulo Retângulo ABC com catetos b e c, hipotenusa a, altura h e projeções m e n]
-   - O sistema irá transformar esta tag em uma ilustração vetorial colorida de alta resolução no PDF e DOCX!
-
-5. VARIABILIDADE E RICA CONTEXTUALIZAÇÃO DAS QUESTÕES:
-   - PROIBIDO repetir a mesma estrutura de enunciado (evite criar 10 questões idênticas trocando só os números).
-   - Elabore questões diversificadas:
-     * Questões conceituais (ex: provar relações, explicar projeções m e n).
-     * Aplicações no cotidiano (ex: altura de um prédio, rampa de acesso, escada apoiada em parede, cabo de ancoragem de torre).
-     * Cálculos da altura relativa à hipotenusa (h² = m . n) e das projeções (b² = a . m).
-     * Questões de múltipla escolha com distratores realistas.
-
-6. SEM GABARITO / ESPAÇAMENTO:
+4. ESTRUTURA E FORMATAÇÃO:
    - Insira uma única linha de resposta (___) para cada questão.
    - NÃO inclua gabarito final.`,
           },
@@ -256,25 +242,21 @@ ${objetivos}`;
   }
 
   prompt += `\n\nEXIGÊNCIAS DE ESTRUTURA E CONTEÚDO PEDAGÓGICO:
-1. TÍTULO E EXPLICAÇÃO TEÓRICA APROFUNDADA:
-   - Apresente um título claro e em seguida uma seção detalhada "## Resumo Teórico do Conteúdo".
-   - Explique os conceitos principais, definições, fórmulas e contextos de aplicação antes das questões.
+1. TÍTULO E EXPLICAÇÃO TEÓRICA EXTREMAMENTE DIDÁTICA E RICA:
+   - Apresente um título atrativo e uma seção "## Resumo Teórico do Conteúdo" rica e contextualizada.
+   - Apresente todas as definições, propriedades, fórmulas (limpas em português) e 2 exemplos resolvidos passo a passo com situações práticas do cotidiano.
 
-2. FÓRMULAS E NOTAÇÃO MATEMÁTICA (MUITO IMPORTANTE):
+2. FÓRMULAS E NOTAÇÃO MATEMÁTICA LIMPA:
    - JAMAIS use notação LaTeX (JAMAIS use \\(, \\), \\frac, \\sin, \\cos, \\tan, \\theta, \\times, ^2).
-   - Escreva fórmulas em texto simples e claro em português. Exemplos:
-     * Use "a² + b² = c²" em vez de "a^2 + b^2 = c^2"
-     * Use "sen(θ) = oposto / hipotenusa" em vez de "\\sin(\\theta) = \\frac{\\text{oposto}}{\\text{hipotenusa}}"
-     * Use "cos(x)" e "tan(x)"
+   - Escreva fórmulas em texto simples e claro em português (a² + b² = c², h² = m . n, b² = a . m, c² = a . n, a . h = b . c, sen(x) = oposto/hipotenusa).
 
-3. EXERCÍCIOS PRÁTICOS (6 A 10 QUESTÕES):
-   - Elabore de 6 a 10 questões progressivas (conceituais, dissertativas, de múltipla escolha e de resolução prática).
-   - As questões devem ser ricas e totalmente focadas no tema exigido (${disciplina}).
+3. QUESTÕES CRIATIVAS, DESAFIADORAS E DIVERSIFICADAS (8 A 10 QUESTÕES):
+   - PROIBIDO repetir a mesma estrutura burocrática de questão.
+   - Crie questões aplicadas em engenharia (rampas NBR 9050, pontes, telhados, escadas), navegação/aviação, telas de eletrônicos e desafios conceituais.
+   - Insira uma única linha de resposta (___) para cada questão.
 
 4. ILUSTRAÇÕES E DIAGRAMAS GEOMÉTRICOS:
-   - NUNCA crie desenhos em ASCII art.
-   - Para tópicos geométricos ou visuais, insira obrigatoriamente a tag descritiva:
-     [Figura: Diagrama do Triângulo Retângulo ABC com catetos b, c, hipotenusa a, altura h e projeções m, n]
+   - NUNCA crie desenhos em ASCII art. O sistema anexará automaticamente o diagrama vetorial ilustrando os elementos (catetos b e c, hipotenusa a, altura h, projeções m e n).
 
 5. TABELAS:
    - Se houver dados comparativos, utilize a sintaxe de tabela Markdown (| Coluna 1 | Coluna 2 |).`;
