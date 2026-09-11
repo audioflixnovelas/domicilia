@@ -48,6 +48,13 @@ export default function LancarAtividadesPedagogoPage() {
     conteudo: '',
     objetivos: '',
     exerciciosExemplo: '',
+    numAulas: '4',
+    dataFicha: '',
+    quinzena: '1',
+    trimestre: '1',
+    anoLetivo: new Date().getFullYear().toString(),
+    roteiro: '',
+    observacoesFicha: '',
   });
   const [aiStep, setAiStep] = useState<'prompt' | 'review'>('prompt');
   const [generatedText, setGeneratedText] = useState('');
@@ -191,6 +198,13 @@ export default function LancarAtividadesPedagogoPage() {
       conteudo: '',
       objetivos: '',
       exerciciosExemplo: '',
+      numAulas: '4',
+      dataFicha: '',
+      quinzena: '1',
+      trimestre: '1',
+      anoLetivo: new Date().getFullYear().toString(),
+      roteiro: '',
+      observacoesFicha: '',
     });
     setAiStep('prompt');
     setGeneratedText('');
@@ -462,6 +476,75 @@ export default function LancarAtividadesPedagogoPage() {
                   </div>
                 )}
               </div>
+
+              {/* Seção da Ficha de Atividade Oficial em DOCX */}
+              <div className="border-t pt-4 mt-2">
+                <h4 className="font-semibold text-gray-900 mb-3 text-sm">Ficha de Atividade Pedagógica (DOCX)</h4>
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <Input
+                    label="Nº de Aulas"
+                    value={formData.numAulas}
+                    onChange={(e) => setFormData({ ...formData, numAulas: e.target.value })}
+                    placeholder="Ex: 4"
+                  />
+                  <Input
+                    label="Data / Período da Ficha"
+                    value={formData.dataFicha}
+                    onChange={(e) => setFormData({ ...formData, dataFicha: e.target.value })}
+                    placeholder="Ex: 05/02/2026 a 27/02/2026"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 mb-3">
+                  <Select
+                    label="Quinzena"
+                    value={formData.quinzena}
+                    onChange={(e) => setFormData({ ...formData, quinzena: e.target.value })}
+                    options={Array.from({ length: 15 }, (_, i) => ({
+                      value: String(i + 1),
+                      label: `Quinzena ${i + 1}`,
+                    }))}
+                  />
+                  <Select
+                    label="Trimestre"
+                    value={formData.trimestre}
+                    onChange={(e) => setFormData({ ...formData, trimestre: e.target.value })}
+                    options={[
+                      { value: '1', label: '1º Trimestre' },
+                      { value: '2', label: '2º Trimestre' },
+                      { value: '3', label: '3º Trimestre' },
+                    ]}
+                  />
+                  <Input
+                    label="Ano Letivo"
+                    value={formData.anoLetivo}
+                    onChange={(e) => setFormData({ ...formData, anoLetivo: e.target.value })}
+                    placeholder="Ex: 2026"
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Roteiro de Estudos (Ficha)</label>
+                  <textarea
+                    value={formData.roteiro}
+                    onChange={(e) => setFormData({ ...formData, roteiro: e.target.value })}
+                    rows={2}
+                    className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none"
+                    placeholder="Orientação ou passos para o aluno realizar a atividade..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Observações na Ficha</label>
+                  <textarea
+                    value={formData.observacoesFicha}
+                    onChange={(e) => setFormData({ ...formData, observacoesFicha: e.target.value })}
+                    rows={2}
+                    className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none"
+                    placeholder="Observações complementares para a ficha pedagógica..."
+                  />
+                </div>
+              </div>
             </>
           ) : (
             <div>
@@ -603,14 +686,14 @@ export default function LancarAtividadesPedagogoPage() {
                           aluno: selectedEnvio.alunoNome || '',
                           turma: selectedEnvio.turmaNome || '',
                           pedagoga: user.name,
-                          data: getCurrentDate(),
-                          numAulas: '4',
+                          data: formData.dataFicha || getCurrentDate(),
+                          numAulas: formData.numAulas || '4',
                           encaminhamento: 'Atividade Gerada por IA pelo Pedagogo',
-                          roteiro: formData.conteudo || 'Realizar exercícios da atividade adaptada em anexo',
-                          observacoes: formData.laudoAluno ? `Atividade adaptada: ${formData.laudoAluno}` : 'Lançado pelo pedagogo com apoio de IA',
-                          quinzena: '1',
-                          trimestre: '1',
-                          anoLetivo: new Date().getFullYear().toString(),
+                          roteiro: formData.roteiro || formData.conteudo || 'Realizar exercícios da atividade adaptada em anexo',
+                          observacoes: formData.observacoesFicha || (formData.laudoAluno ? `Atividade adaptada: ${formData.laudoAluno}` : 'Lançado pelo pedagogo com apoio de IA'),
+                          quinzena: formData.quinzena || '1',
+                          trimestre: formData.trimestre || '1',
+                          anoLetivo: formData.anoLetivo || new Date().getFullYear().toString(),
                         }),
                       });
 
