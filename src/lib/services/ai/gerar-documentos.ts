@@ -2,69 +2,67 @@ import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, Image
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-// Helper em Canvas/Node para desenhar um diagrama geométrico completo do Triângulo Retângulo com Altura e Projeções (m e n) em formato Data URL PNG
+export const RIGHT_TRIANGLE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="380" viewBox="0 0 600 380">
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <!-- Fundo suave -->
+  <rect x="20" y="20" width="560" height="340" rx="12" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+
+  <!-- Triângulo Retângulo ABC (Vértice A no topo = ângulo reto) -->
+  <!-- C (50, 280), B (550, 280), A (210, 80) -->
+  <polygon points="50,280 550,280 210,80" fill="#eff6ff" stroke="#1d4ed8" stroke-width="3"/>
+
+  <!-- Altura h perpendicular de A (210,80) até H (210, 280) -->
+  <line x1="210" y1="80" x2="210" y2="280" stroke="#dc2626" stroke-width="2.5" stroke-dasharray="6,4"/>
+
+  <!-- Ângulo reto em A -->
+  <polygon points="210,80 197,94 211,108 225,94" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+  <circle cx="210" cy="94" r="2.5" fill="#1d4ed8"/>
+
+  <!-- Ângulo reto em H (base da altura) -->
+  <rect x="195" y="265" width="15" height="15" fill="#fee2e2" stroke="#dc2626" stroke-width="1.5"/>
+  <circle cx="202.5" cy="272.5" r="2" fill="#dc2626"/>
+
+  <!-- Vértices -->
+  <circle cx="210" cy="80" r="5" fill="#1e40af"/>
+  <text x="202" y="60" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#1e40af">A (Ângulo Reto)</text>
+
+  <circle cx="50" cy="280" r="5" fill="#1e40af"/>
+  <text x="25" y="300" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#1e40af">C</text>
+
+  <circle cx="550" cy="280" r="5" fill="#1e40af"/>
+  <text x="560" y="300" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#1e40af">B</text>
+
+  <circle cx="210" cy="280" r="4" fill="#dc2626"/>
+  <text x="202" y="305" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#dc2626">H</text>
+
+  <!-- Rótulos dos Lados -->
+  <!-- Cateto b (AC) -->
+  <text x="105" y="170" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#2563eb">cateto b</text>
+
+  <!-- Cateto c (AB) -->
+  <text x="390" y="170" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#2563eb">cateto c</text>
+
+  <!-- Altura h -->
+  <text x="220" y="185" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#dc2626">altura h</text>
+
+  <!-- Base Hipotenusa a (BC) -->
+  <line x1="50" y1="330" x2="550" y2="330" stroke="#059669" stroke-width="2"/>
+  <polygon points="50,330 60,325 60,335" fill="#059669"/>
+  <polygon points="550,330 540,325 540,335" fill="#059669"/>
+  <text x="240" y="350" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#059669">Hipotenusa a (a = m + n)</text>
+
+  <!-- Projeções m e n -->
+  <!-- Projeção m (CH) -->
+  <line x1="50" y1="310" x2="210" y2="310" stroke="#7c3aed" stroke-width="1.8"/>
+  <text x="110" y="305" font-family="Arial, sans-serif" font-size="15" font-weight="bold" fill="#7c3aed">projeção m</text>
+
+  <!-- Projeção n (HB) -->
+  <line x1="210" y1="310" x2="550" y2="310" stroke="#7c3aed" stroke-width="1.8"/>
+  <text x="360" y="305" font-family="Arial, sans-serif" font-size="15" font-weight="bold" fill="#7c3aed">projeção n</text>
+</svg>`;
+
 export function generateRightTriangleDataUrl(): string {
-  // SVG de vetor em ultra resolução do Triângulo Retângulo com catetos, hipotenusa, altura h e projeções m e n
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="380" viewBox="0 0 600 380">
-    <rect width="100%" height="100%" fill="#ffffff"/>
-    <!-- Fundo suave -->
-    <rect x="20" y="20" width="560" height="340" rx="12" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
-
-    <!-- Triângulo Retângulo ABC (Vértice A no topo = ângulo reto) -->
-    <!-- C (50, 280), B (550, 280), A (210, 80) -->
-    <polygon points="50,280 550,280 210,80" fill="#eff6ff" stroke="#1d4ed8" stroke-width="3"/>
-
-    <!-- Altura h perpendicular de A (210,80) até H (210, 280) -->
-    <line x1="210" y1="80" x2="210" y2="280" stroke="#dc2626" stroke-width="2.5" stroke-dasharray="6,4"/>
-
-    <!-- Ângulo reto em A -->
-    <polygon points="210,80 197,94 211,108 225,94" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
-    <circle cx="210" cy="94" r="2.5" fill="#1d4ed8"/>
-
-    <!-- Ângulo reto em H (base da altura) -->
-    <rect x="195" y="265" width="15" height="15" fill="#fee2e2" stroke="#dc2626" stroke-width="1.5"/>
-    <circle cx="202.5" cy="272.5" r="2" fill="#dc2626"/>
-
-    <!-- Vértices -->
-    <circle cx="210" cy="80" r="5" fill="#1e40af"/>
-    <text x="202" y="60" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#1e40af">A (Ângulo Reto)</text>
-
-    <circle cx="50" cy="280" r="5" fill="#1e40af"/>
-    <text x="25" y="300" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#1e40af">C</text>
-
-    <circle cx="550" cy="280" r="5" fill="#1e40af"/>
-    <text x="560" y="300" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#1e40af">B</text>
-
-    <circle cx="210" cy="280" r="4" fill="#dc2626"/>
-    <text x="202" y="305" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#dc2626">H</text>
-
-    <!-- Rótulos dos Lados -->
-    <!-- Cateto b (AC) -->
-    <text x="105" y="170" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#2563eb">cateto b</text>
-
-    <!-- Cateto c (AB) -->
-    <text x="390" y="170" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#2563eb">cateto c</text>
-
-    <!-- Altura h -->
-    <text x="220" y="185" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#dc2626">altura h</text>
-
-    <!-- Base Hipotenusa a (BC) -->
-    <line x1="50" y1="330" x2="550" y2="330" stroke="#059669" stroke-width="2"/>
-    <polygon points="50,330 60,325 60,335" fill="#059669"/>
-    <polygon points="550,330 540,325 540,335" fill="#059669"/>
-    <text x="240" y="350" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#059669">Hipotenusa a (a = m + n)</text>
-
-    <!-- Projeções m e n -->
-    <!-- Projeção m (CH) -->
-    <line x1="50" y1="310" x2="210" y2="310" stroke="#7c3aed" stroke-width="1.8"/>
-    <text x="110" y="305" font-family="Arial, sans-serif" font-size="15" font-weight="bold" fill="#7c3aed">projeção m</text>
-
-    <!-- Projeção n (HB) -->
-    <line x1="210" y1="310" x2="550" y2="310" stroke="#7c3aed" stroke-width="1.8"/>
-    <text x="360" y="305" font-family="Arial, sans-serif" font-size="15" font-weight="bold" fill="#7c3aed">projeção n</text>
-  </svg>`;
-
-  const base64Svg = Buffer.from(svg).toString('base64');
+  const base64Svg = Buffer.from(RIGHT_TRIANGLE_SVG).toString('base64');
   return `data:image/svg+xml;base64,${base64Svg}`;
 }
 
@@ -142,7 +140,12 @@ function parseAtividade(html: string): { titulo: string; linhas: string[] } {
     .trim();
 
   const rawLinhas = text.split('\n').filter((l) => l.trim());
-  const linhas = rawLinhas.filter((l) => !isAsciiArtLine(l));
+  const linhas = rawLinhas.filter((l) => {
+    if (isAsciiArtLine(l)) return false;
+    // Remove marcadores crus de figura [Figura: ...]
+    if (/^\[Figura:.*\]$/i.test(l.trim())) return false;
+    return true;
+  });
   const titulo = linhas[0]?.replace(/^##\s*/, '') || 'Atividade Domiciliar';
 
   return { titulo, linhas };
@@ -188,9 +191,60 @@ export async function gerarDOCX(atividade: AtividadeData): Promise<Buffer> {
       children: [
         new TextRun({ text: `Data: ____/____/________`, size: 22 }),
       ],
-      spacing: { after: 300 },
+      spacing: { after: 200 },
     })
   );
+
+  // Inserção de Figuras/Diagramas no DOCX
+  const ehGeometria =
+    atividade.disciplina.toLowerCase().includes('matemática') ||
+    atividade.disciplina.toLowerCase().includes('geometria') ||
+    atividade.conteudo.toLowerCase().includes('triângulo') ||
+    atividade.conteudo.toLowerCase().includes('[figura:');
+
+  const listaImagensDocx: string[] = atividade.imagens ? [...atividade.imagens] : [];
+  if (ehGeometria && listaImagensDocx.length === 0) {
+    listaImagensDocx.push(generateRightTriangleDataUrl());
+  }
+
+  for (const imgUrl of listaImagensDocx) {
+    try {
+      if (typeof window === 'undefined') {
+        // Dynamic import no servidor Node.js
+        const sharp = (await import('sharp')).default;
+        let pngBuffer: Buffer;
+        if (imgUrl.startsWith('data:image/svg+xml')) {
+          const svgContent = imgUrl.includes('base64,')
+            ? Buffer.from(imgUrl.split('base64,')[1], 'base64').toString('utf-8')
+            : RIGHT_TRIANGLE_SVG;
+          pngBuffer = await sharp(Buffer.from(svgContent)).png().toBuffer();
+        } else if (imgUrl.includes('base64,')) {
+          const rawBuf = Buffer.from(imgUrl.split('base64,')[1], 'base64');
+          pngBuffer = await sharp(rawBuf).png().toBuffer();
+        } else {
+          pngBuffer = await sharp(Buffer.from(RIGHT_TRIANGLE_SVG)).png().toBuffer();
+        }
+
+        children.push(
+          new Paragraph({
+            children: [
+              new ImageRun({
+                data: pngBuffer,
+                transformation: {
+                  width: 480,
+                  height: 280,
+                },
+              } as any),
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 250, before: 150 },
+          })
+        );
+      }
+    } catch (err) {
+      console.error('Erro ao converter e inserir imagem no DOCX:', err);
+    }
+  }
 
   // Processamento de linhas e tabelas Markdown
   let inTable = false;
