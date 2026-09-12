@@ -3,7 +3,18 @@ import { generateActivityForStudent } from '@/lib/services/ai';
 
 export async function POST(request: NextRequest) {
   try {
-    const { alunoNome, turmaNome, disciplina, config } = await request.json();
+    const {
+      alunoNome,
+      turmaNome,
+      disciplina,
+      config,
+      serie,
+      userConteudo,
+      laudoAluno,
+      objetivos,
+      imagens,
+      opcoes,
+    } = await request.json();
 
     if (!alunoNome || !turmaNome || !disciplina) {
       return NextResponse.json(
@@ -12,9 +23,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await generateActivityForStudent(alunoNome, turmaNome, disciplina, config);
+    const result = await generateActivityForStudent(
+      alunoNome,
+      turmaNome,
+      disciplina,
+      config,
+      serie,
+      userConteudo,
+      laudoAluno,
+      objetivos,
+      imagens,
+      opcoes
+    );
 
-    return NextResponse.json({ success: true, activity: result });
+    return NextResponse.json({
+      success: true,
+      activity: {
+        texto: result.texto,
+        imagens: result.imagens,
+      },
+    });
   } catch (error: any) {
     console.error('Erro ao gerar atividade:', error);
     return NextResponse.json({ error: error.message || 'Erro interno' }, { status: 500 });

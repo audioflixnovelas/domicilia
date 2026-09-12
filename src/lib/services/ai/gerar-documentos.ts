@@ -207,20 +207,40 @@ export async function gerarDOCX(atividade: AtividadeData): Promise<Buffer> {
     listaImagensDocx.push(generateRightTriangleDataUrl());
   }
 
+  let docxImgIdx = 1;
   for (const imgUrl of listaImagensDocx) {
     try {
       if (typeof window === 'undefined') {
-        // Dynamic eval require no servidor Node.js para evitar falha de tipagem no bundler client-side Turbopack
         const sharpModule = 'sharp';
         const sharp = eval('require')(sharpModule);
         let pngBuffer: Buffer;
+        let targetWidth = 480;
+        let targetHeight = 260;
+
         if (imgUrl.startsWith('data:image/svg+xml')) {
           const svgContent = imgUrl.includes('base64,')
             ? Buffer.from(imgUrl.split('base64,')[1], 'base64').toString('utf-8')
             : RIGHT_TRIANGLE_SVG;
           pngBuffer = await sharp(Buffer.from(svgContent)).png().toBuffer();
-        } else if (imgUrl.includes('base64,')) {
+        } else if (imgUrl.startsWith('data:image/')) {
           const rawBuf = Buffer.from(imgUrl.split('base64,')[1], 'base64');
+          try {
+            const meta = await sharp(rawBuf).metadata();
+            if (meta.width && meta.height) {
+              targetHeight = Math.min(320, Math.max(130, Math.round((targetWidth * meta.height) / meta.width)));
+            }
+          } catch {}
+          pngBuffer = await sharp(rawBuf).png().toBuffer();
+        } else if (imgUrl.startsWith('http://') || imgUrl.startsWith('https://')) {
+          const res = await fetch(imgUrl);
+          const arrBuf = await res.arrayBuffer();
+          const rawBuf = Buffer.from(arrBuf);
+          try {
+            const meta = await sharp(rawBuf).metadata();
+            if (meta.width && meta.height) {
+              targetHeight = Math.min(320, Math.max(130, Math.round((targetWidth * meta.height) / meta.width)));
+            }
+          } catch {}
           pngBuffer = await sharp(rawBuf).png().toBuffer();
         } else {
           pngBuffer = await sharp(Buffer.from(RIGHT_TRIANGLE_SVG)).png().toBuffer();
@@ -232,15 +252,31 @@ export async function gerarDOCX(atividade: AtividadeData): Promise<Buffer> {
               new ImageRun({
                 data: pngBuffer,
                 transformation: {
-                  width: 480,
-                  height: 280,
+                  width: targetWidth,
+                  height: targetHeight,
                 },
               } as any),
             ],
             alignment: AlignmentType.CENTER,
-            spacing: { after: 250, before: 150 },
+            spacing: { after: 60, before: 140 },
           })
         );
+
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `Figura ${docxImgIdx}: Material e ilustração de apoio pedagógico`,
+                italics: true,
+                size: 18,
+                color: '555555',
+              }),
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 200 },
+          })
+        );
+        docxImgIdx++;
       }
     } catch (err) {
       console.error('Erro ao converter e inserir imagem no DOCX:', err);
@@ -399,6 +435,7 @@ export function gerarPDF(atividade: AtividadeData): Buffer {
 
   // Renderiza imagens no PDF com borda elegante e alinhamento centralizado
   if (listaImagens.length > 0) {
+    let pdfImgIdx = 1;
     for (const imgUrl of listaImagens) {
       try {
         if (y > 170) {
@@ -406,16 +443,31 @@ export function gerarPDF(atividade: AtividadeData): Buffer {
           y = margin;
         }
         const imgWidth = 145;
-        const imgHeight = 90;
+        const imgHeight = 85;
         const xPos = (pageWidth - imgWidth) / 2;
 
-        // Moldura em volta da imagem
-        doc.setDrawColor(220, 226, 230);
-        doc.rect(xPos - 2, y - 2, imgWidth + 4, imgHeight + 4);
+        // Moldura suave em volta da imagem
+        doc.setDrawColor(210, 220, 230);
+        doc.setLineWidth(0.5);
+        doc.rect(xPos - 1.5, y - 1.5, imgWidth + 3, imgHeight + 3);
 
-        const format = imgUrl.includes('data:image/svg+xml') ? 'SVG' : 'PNG';
+        const format = imgUrl.includes('data:image/svg+xml')
+          ? 'SVG'
+          : imgUrl.includes('image/png')
+          ? 'PNG'
+          : 'JPEG';
+
         doc.addImage(imgUrl, format as any, xPos, y, imgWidth, imgHeight);
-        y += imgHeight + 12;
+        y += imgHeight + 4.5;
+
+        // Legenda elegante centralizada
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Figura ${pdfImgIdx}: Material e ilustração de apoio pedagógico`, pageWidth / 2, y, { align: 'center' });
+        doc.setTextColor(0, 0, 0);
+        y += 8;
+        pdfImgIdx++;
       } catch (err) {
         console.error('Erro ao anexar imagem fornecida no PDF:', err);
       }

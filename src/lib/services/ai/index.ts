@@ -57,6 +57,8 @@ interface QueueItem {
   error?: string;
 }
 
+import { autoFindImagesForActivity, fetchAndOptimizeImage } from './image-search';
+
 class LLM7Provider implements AIProvider {
   private baseUrl = 'https://api.llm7.io/v1';
 
@@ -72,39 +74,47 @@ class LLM7Provider implements AIProvider {
         messages: [
           {
             role: 'system',
-            content: `Você é um renomado autor de livros didáticos para vestibulares e olimpíadas escolares, especialista em elaborar atividades de ALTO NÍVEL CONCEITUAL, PROFUNDAS e EXTREMAMENTE ENRIQUECEDORAS.
+            content: `Você é um renomado autor de livros didáticos de excelência e especialista pedagógico alinhado à BNCC, reconhecido por produzir atividades de ALTO NÍVEL CONCEITUAL, COMPLETAS, DIDÁTICAS e EXTREMAMENTE ENRIQUECEDORAS.
 
-DIRETRIZES DE QUALIDADE, APROFUNDAMENTO E COMPLEXIDADE PEDAGÓGICA:
-1. QUESTÕES COMPLEXAS, RICAS E MULTI-ETAPAS (MUITO IMPORTANTE):
-   - PROIBIDO criar questões rasas de linha única (como "qual é o valor do outro cateto?").
-   - Cada questão DEVE ser um estudo de caso envolvente (3 a 6 linhas de contexto real) desmembrado em sub-itens (a, b, c) para análise completa e aprofundada!
-   - Contextualizações obrigatórias com cálculos reais:
-     * Engenharia Civil & Arquitetura: Projetos de pontes estaiadas (cálculo dos cabos de sustentação, altura do pilar h, projeções na pista m e n, custo do cabo por metro).
-     * Rampa NBR 9050 & Acessibilidade: Verificação técnica da inclinação regulamentar, cateto vertical, extenso horizontal e comprimento total da rampa.
-     * Aviação & Balística: Trajetória de decolagem de aeronaves com gradiente de subida, componentes vetoriais de velocidade e alcance radar.
-     * Física & Tecnologia: Telas HD (relação de aspecto 16:9, Teorema de Pitágoras para diagonal em polegadas), circuitos elétricos e vetores em física.
-   - Estrutura de sub-itens esperada por questão:
-     a) Desenvolver a interpretação geométrica e calcular a hipotenusa/dimensão principal.
-     b) Determinar a altura relativa h e/ou as projeções ortogonais m e n.
-     c) Apresentar uma conclusão técnica, financeira ou de viabilidade do projeto.
+DIRETRIZES FUNDAMENTAIS PARA CRIAÇÃO DE ATIVIDADES DE EXCELÊNCIA:
 
-2. RESUMO TEÓRICO DENSE E CONCEITUALMENTE PERFEITO:
-   - A seção "## Resumo Teórico do Conteúdo" deve ser um verdadeiro capítulo de livro didático de alta performance.
-   - Explique detalhadamente cada uma das 5 relações métricas e das razões trigonométricas.
-   - Apresente 2 EXEMPLOS RESOLVIDOS PASSO A PASSO completos, mostrando todos os cálculos e substituições numéricas detalhadamente.
+1. ESTRUTURA COMPLETA E DETALHADA:
+   A atividade deve ser rica e autoexplicativa, permitindo ao estudante em regime domiciliar aprender com profundidade e autonomia.
+   Estrutura obrigatória:
+   - TÍTULO INSTIGANTE E CONTEXTUALIZADO (Ex: # Título da Atividade)
+   - ## 1. Introdução e Contextualização Prática: Por que este conhecimento é importante no mundo real, na ciência, na sociedade ou no cotidiano?
+   - ## 2. Resumo Teórico do Conteúdo (Completo e Aprofundado):
+     * Explicação clara e detalhada dos conceitos essenciais, propriedades, causas e efeitos.
+     * Nada de explicações curtas de um único parágrafo! Desenvolva os tópicos com rigor pedagógico e linguagem acessível à série.
+   - ## 3. Exemplos Resolvidos e Comentados Passo a Passo (2 Exemplos):
+     * Demonstre o raciocínio detalhado de resolução ou análise de caso, guiando o aluno pelo método correto.
+   - ## 4. Atividades Práticas e Desafios de Fixação (8 a 10 Questões):
+     * Cada questão DEVE ter uma contextualização rica (3 a 6 linhas de situação-problema real, texto motivador ou cenário prático).
+     * Questões desmembradas em sub-itens analíticos:
+       a) Compreensão e identificação dos elementos essenciais.
+       b) Aplicação prática do conceito ou cálculo/análise estruturada.
+       c) Conclusão crítica, interpretação reflexiva ou tomada de decisão fundamentada.
+     * Inclua questões específicas para análise e interpretação das figuras/ilustrações de apoio pedagógico presentes na atividade.
+     * Insira uma linha de resposta limpa (___) para cada sub-item.
+   - ## 5. Você Sabia? / Aplicação no Mundo Atual:
+     * Uma curiosidade estimulante ou conexão interdisciplinar com inovação, tecnologia ou cultura.
 
-3. FORMATAÇÃO LIMPA SEM LATEX E SEM ASCII ART:
-   - PROIBIDO código/tags LaTeX (\\[, \\], \\(, \\), \\frac, \\sin, \\cos, \\tan, \\theta, \\sqrt, ^2). Escreva fórmulas em português legível:
-     * a² = b² + c²
-     * h² = m . n
-     * b² = a . m e c² = a . n
-     * a . h = b . c
-     * h = √(23,04) = 4,8 m
-   - PROIBIDO ASCII art.
+2. RIGOR TEMÁTICO E ESPECIFICIDADE POR DISCIPLINA:
+   - CIÊNCIAS HUMANAS (História, Geografia, Filosofia, Sociologia):
+     * Análise de processos históricos, fontes documentais, mapas, territórios e dinâmicas sociais/geopolíticas.
+   - CIÊNCIAS DA NATUREZA (Ciências, Biologia, Física, Química):
+     * Método científico, fenômenos biológicos, estruturas e funções, experimentos práticos e leis naturais.
+   - MATEMÁTICA E GEOMETRIA:
+     * Resolução de problemas reais, raciocínio lógico, relações geométricas e algébricas aplicadas.
+   - LINGUAGENS (Português, Redação, Literatura, Inglês):
+     * Gêneros textuais, interpretação de texto autêntico, vocabulário e recursos estilísticos e gramaticais em contexto.
+   - ARTES, EDUCAÇÃO FÍSICA E DIGITAL:
+     * Expressão artística, história da arte, cidadania digital, saúde e cultura corporal.
 
-4. ESPAÇO PARA RESPOSTA:
-   - Insira uma única linha de resposta (___) para cada sub-item das questões.
-   - NÃO inclua gabarito no final.`,
+3. FORMATAÇÃO E NOTAÇÃO LIMPA:
+   - PROIBIDO código/tags LaTeX (\\frac, \\sin, \\cos, \\sqrt, \\theta, \\times, ^2). Escreva fórmulas em português legível e acessível: (a² + b² = c², v = d / t, h = √(25)).
+   - PROIBIDO desenhos em ASCII art (o sistema insere ilustrações reais da web e diagramas).
+   - NÃO inclua gabarito de respostas no final da atividade.`,
           },
           { role: 'user', content: prompt },
         ],
@@ -207,6 +217,12 @@ export async function buscarConteudoIA(disciplina: string, serie: string): Promi
   }
 }
 
+export interface GenerateActivityOptions {
+  buscarImagensWeb?: boolean;
+  termoBuscaImagens?: string;
+  maxImagens?: number;
+}
+
 export async function generateActivityForStudent(
   alunoNome: string,
   turmaNome: string,
@@ -216,18 +232,57 @@ export async function generateActivityForStudent(
   userConteudo?: string,
   laudoAluno?: string,
   objetivos?: string,
-  imagens?: string[]
-): Promise<{ texto: string; pdf: Buffer; docx: Buffer }> {
+  imagens?: string[],
+  opcoes?: GenerateActivityOptions
+): Promise<{ texto: string; pdf: Buffer; docx: Buffer; imagens: string[] }> {
   const conteudoDB = await buscarConteudoIA(disciplina, serie || '');
+  const temaEfetivo = userConteudo || conteudoDB?.titulo || disciplina;
 
-  let prompt = `Elabore uma atividade domiciliar RIGOROSAMENTE sobre a matéria "${disciplina}" para o(a) aluno(a) ${alunoNome} (${serie || 'Ensino Fundamental/Médio'}, Turma ${turmaNome}).
+  // 1. Gerenciamento e Busca de Imagens da Web
+  let finalImagens: string[] = imagens ? [...imagens] : [];
 
-ATENÇÃO IMPERATIVA:
-- A disciplina É "${disciplina}". NÃO gere questões de outra matéria. Se a matéria for História, Geografia, Português, Biologia etc., JAMAIS gere continhas de matemática.
-- Adapte o vocabulário e a profundidade estritamente para a série/ano: ${serie || 'Nível Escolar'}.`;
+  // Se o usuário não forneceu imagens manuais e a busca na web estiver habilitada (padrão ativo)
+  if (finalImagens.length === 0 && opcoes?.buscarImagensWeb !== false) {
+    try {
+      const termoBusca = opcoes?.termoBuscaImagens || temaEfetivo;
+      const webImages = await autoFindImagesForActivity(
+        disciplina,
+        termoBusca,
+        serie,
+        opcoes?.maxImagens || 2
+      );
+      if (webImages.length > 0) {
+        finalImagens = webImages;
+      }
+    } catch (err) {
+      console.warn('Aviso: falha na busca automática de imagens na web:', err);
+    }
+  }
+
+  // Otimiza e garante que todas as imagens sejam Data URLs seguras
+  const processedImagens: string[] = [];
+  for (const img of finalImagens) {
+    try {
+      if (img.startsWith('data:image/')) {
+        processedImagens.push(img);
+      } else {
+        const opt = await fetchAndOptimizeImage(img);
+        processedImagens.push(opt.dataUrl);
+      }
+    } catch (err) {
+      console.warn('Falha ao processar imagem para documento:', err);
+    }
+  }
+
+  // 2. Montagem do Prompt Rico e Pedagógico
+  let prompt = `Elabore uma atividade domiciliar de ALTA QUALIDADE, COMPLETA e RIGOROSAMENTE sobre a matéria "${disciplina}" para o(a) aluno(a) ${alunoNome} (${serie || 'Ensino Fundamental/Médio'}, Turma ${turmaNome}).
+
+DIRETRIZES OBRIGATÓRIAS:
+- A disciplina É "${disciplina}". NÃO gere questões ou teorias de outra matéria.
+- Adapte o vocabulário, complexidade e abordagem estritamente para a série/ano: ${serie || 'Nível Escolar'}.`;
 
   if (userConteudo) {
-    prompt += `\n\nTEMA / CONTEÚDO ESPECÍFICO EXIGIDO PELO PROFESSOR:
+    prompt += `\n\nTEMA / CONTEÚDO ESPECÍFICO EXIGIDO:
 ${userConteudo}`;
   } else if (conteudoDB) {
     prompt += `\n\nCONTEÚDO PROGRAMÁTICO BASE:
@@ -237,9 +292,9 @@ ${userConteudo}`;
   }
 
   if (laudoAluno) {
-    prompt += `\n\nLAUDO DO ALUNO / ADAPTAÇÕES PEDAGÓGICAS (MUITO IMPORTANTE):
+    prompt += `\n\nLAUDO DO ALUNO / ADAPTAÇÕES PEDAGÓGICAS ESPECIAIS:
 ${laudoAluno}
-Adapte as questões (ex: questões mais diretas, enunciados claros, opções objetivas) respeitando rigorosamente as necessidades deste laudo.`;
+Adapte rigorosamente a linguagem, o ritmo das explicações e o formato das questões para atender com máxima sensibilidade e eficácia a estas necessidades.`;
   }
 
   if (objetivos) {
@@ -247,25 +302,31 @@ Adapte as questões (ex: questões mais diretas, enunciados claros, opções obj
 ${objetivos}`;
   }
 
-  prompt += `\n\nEXIGÊNCIAS DE ESTRUTURA E CONTEÚDO PEDAGÓGICO:
-1. TÍTULO E EXPLICAÇÃO TEÓRICA EXTREMAMENTE DIDÁTICA E RICA:
-   - Apresente um título atrativo e uma seção "## Resumo Teórico do Conteúdo" rica e contextualizada.
-   - Apresente todas as definições, propriedades, fórmulas (limpas em português) e 2 exemplos resolvidos passo a passo com situações práticas do cotidiano.
+  if (processedImagens.length > 0) {
+    prompt += `\n\nRECURSOS VISUAIS E ILUSTRAÇÕES DE APOIO:
+A atividade incluirá ${processedImagens.length} ilustração(ões)/figura(s) educativa(s) pesquisada(s) da web.
+No Resumo Teórico e em pelo menos 2 questões, faça referências explícitas às figuras de apoio (ex: "Com base na Figura de apoio...", "Ao analisar a ilustração temática..."), estimulando a leitura de imagens e a interpretação visual pelo estudante.`;
+  }
 
-2. FÓRMULAS E NOTAÇÃO MATEMÁTICA LIMPA:
-   - JAMAIS use notação LaTeX (JAMAIS use \\(, \\), \\frac, \\sin, \\cos, \\tan, \\theta, \\times, ^2).
-   - Escreva fórmulas em texto simples e claro em português (a² + b² = c², h² = m . n, b² = a . m, c² = a . n, a . h = b . c, sen(x) = oposto/hipotenusa).
+  prompt += `\n\nEXIGÊNCIAS PEDAGÓGICAS E DE CONTEÚDO:
+1. TÍTULO E INTRODUÇÃO PRÁTICA:
+   - Crie um título claro e atrativo (# Título).
+   - Inicie com a seção "## 1. Introdução e Contextualização", mostrando a aplicação e relevância do tema na vida real.
 
-3. QUESTÕES CRIATIVAS, DESAFIADORAS E DIVERSIFICADAS (8 A 10 QUESTÕES):
-   - PROIBIDO repetir a mesma estrutura burocrática de questão.
-   - Crie questões aplicadas em engenharia (rampas NBR 9050, pontes, telhados, escadas), navegação/aviação, telas de eletrônicos e desafios conceituais.
-   - Insira uma única linha de resposta (___) para cada questão.
+2. RESUMO TEÓRICO APROFUNDADO E DIDÁTICO:
+   - Seção "## 2. Resumo Teórico do Conteúdo" rica, profunda e detalhada, com definições, conceitos-chave e desenvolvimento claro.
+   - Permita ao aluno estudar e dominar o conteúdo apenas com este material.
 
-4. ILUSTRAÇÕES E DIAGRAMAS GEOMÉTRICOS:
-   - NUNCA crie desenhos em ASCII art. O sistema anexará automaticamente o diagrama vetorial ilustrando os elementos (catetos b e c, hipotenusa a, altura h, projeções m e n).
+3. EXEMPLOS RESOLVIDOS PASSO A PASSO:
+   - Seção "## 3. Exemplos Resolvidos e Comentados", contendo 2 exemplos completos passo a passo demonstrando o método de análise ou resolução.
 
-5. TABELAS:
-   - Se houver dados comparativos, utilize a sintaxe de tabela Markdown (| Coluna 1 | Coluna 2 |).`;
+4. ATIVIDADES PRÁTICAS E DESAFIOS (8 A 10 QUESTÕES MULTI-ETAPAS):
+   - Seção "## 4. Atividades Práticas e Desafios de Fixação".
+   - Cada questão deve ter contexto sólido de 3 a 5 linhas e sub-itens (a, b, c) para raciocínio progressivo.
+   - Insira linha de resposta (___) para cada sub-item.
+
+5. SEÇÃO DE CURIOSIDADE:
+   - Seção "## 5. Você Sabia?", conectando o conteúdo com fatos curiosos ou tecnologia.`;
 
   const provider = new LLM7Provider();
   const texto = await provider.generateActivity(prompt, config);
@@ -277,7 +338,7 @@ ${objetivos}`;
     turma: turmaNome,
     aluno: alunoNome,
     conteudo: texto,
-    imagens,
+    imagens: processedImagens.length > 0 ? processedImagens : undefined,
   };
 
   const [pdf, docx] = await Promise.all([
@@ -285,5 +346,5 @@ ${objetivos}`;
     gerarDOCX(atividadeData),
   ]);
 
-  return { texto, pdf, docx };
+  return { texto, pdf, docx, imagens: processedImagens };
 }

@@ -17,6 +17,7 @@ import { Aluno, Turma, Envio, Historico, User, ConfiguracaoGlobal } from '@/type
 import { getCurrentDate, getCurrentTime } from '@/lib/utils';
 import { generateActivityForStudent } from '@/lib/services/ai';
 import { Modal } from '@/components/ui/Modal';
+import WebImageSearch from '@/components/ai/WebImageSearch';
 
 const seriesOptions = ['1ª série', '2ª série', '3ª série', '4ª série', '5ª série', '6ª série', '7ª série', '8ª série', '9ª série', 'Ensino Médio'];
 
@@ -66,6 +67,7 @@ function EnviarAtividadeContent() {
   const [aiStep, setAiFormStep] = useState<'prompt' | 'review'>('prompt');
   const [generatedText, setGeneratedText] = useState('');
   const [customImageDataUrls, setCustomImageDataUrls] = useState<string[]>([]);
+  const [autoSearchWeb, setAutoSearchWeb] = useState(true);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiSuccessMsg, setAiSuccessMsg] = useState('');
   const [aiErrorMsg, setAiErrorMsg] = useState('');
@@ -287,18 +289,17 @@ function EnviarAtividadeContent() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Input label="Nº de Aulas" value={formData.numAulas} onChange={(e) => setFormData({ ...formData, numAulas: e.target.value })} placeholder="Ex: 4" />
                 <Input label="Mês" value={formData.mes} onChange={(e) => setFormData({ ...formData, mes: e.target.value })} placeholder="Ex: Fevereiro" />
-                <Input label="Quinzena/Data" value={formData.data} onChange={(e) => setFormData({ ...formData, data: e.target.value })} placeholder="Ex: 05/02/2026 a 27/02/2026" />
+                <Input label="Data / Período" value={formData.data} onChange={(e) => setFormData({ ...formData, data: e.target.value })} placeholder="Ex: 05/02/2026 a 27/02/2026" />
               </div>
 
               <div className="grid grid-cols-3 gap-4 mt-4">
-                <Select
-                  label="Quinzena"
+                <Input
+                  label="Nº da Ficha"
+                  type="number"
+                  min="1"
                   value={formData.quinzena}
                   onChange={(e) => setFormData({ ...formData, quinzena: e.target.value })}
-                  options={Array.from({ length: 15 }, (_, i) => ({
-                    value: String(i + 1),
-                    label: `Quinzena ${i + 1}`,
-                  }))}
+                  placeholder="Ex: 1"
                   required
                 />
                 <Select
@@ -446,51 +447,53 @@ function EnviarAtividadeContent() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Anexar Figuras / Mapas / Gráficos Escolhidos pelo Professor (Permite múltiplos arquivos)
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleCustomImageUpload}
-                  className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 p-2"
+                <WebImageSearch
+                  disciplina={formData.disciplina}
+                  conteudo={aiForm.conteudo}
+                  serie={aiForm.serie}
+                  selectedImages={customImageDataUrls}
+                  onImagesChange={setCustomImageDataUrls}
+                  autoSearchWeb={autoSearchWeb}
+                  onAutoSearchWebChange={setAutoSearchWeb}
                 />
-                {customImageDataUrls.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    <p className="text-xs text-green-600 font-medium">
-                      ✓ {customImageDataUrls.length} imagem(ns) carregada(s) para inserção no PDF/DOCX:
-                    </p>
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {customImageDataUrls.map((url, idx) => (
-                        <div key={idx} className="relative group border border-gray-200 rounded p-1 bg-white">
-                          <img src={url} alt={`Anexo ${idx + 1}`} className="w-16 h-16 object-cover rounded" />
-                          <button
-                            type="button"
-                            onClick={() => removeCustomImage(idx)}
-                            className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold shadow hover:bg-red-700"
-                            title="Remover imagem"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             </>
           ) : (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Revise e edite o texto da atividade antes do envio final:
-              </label>
-              <textarea
-                value={generatedText}
-                onChange={(e) => setGeneratedText(e.target.value)}
-                rows={12}
-                className="block w-full rounded-lg border border-gray-300 p-3 font-mono text-xs text-gray-900 shadow-sm focus:border-purple-500 focus:outline-none"
-              />
+            <div className="space-y-4">
+              {customImageDataUrls.length > 0 && (
+                <div className="rounded-lg border border-purple-200 bg-purple-50/60 p-3">
+                  <p className="text-xs font-semibold text-purple-900 mb-2">
+                    ✓ {customImageDataUrls.length} imagem(ns) educativa(s) inserida(s) no cabeçalho do PDF e DOCX:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {customImageDataUrls.map((url, idx) => (
+                      <div key={idx} className="relative rounded border border-purple-200 bg-white p-1 shadow-2xs">
+                        <img src={url} alt={`Figura ${idx + 1}`} className="h-16 w-20 object-cover rounded" />
+                        <button
+                          type="button"
+                          onClick={() => removeCustomImage(idx)}
+                          className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-white text-[10px] shadow hover:bg-red-700"
+                          title="Remover imagem"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Revise e edite o texto da atividade antes do envio final:
+                </label>
+                <textarea
+                  value={generatedText}
+                  onChange={(e) => setGeneratedText(e.target.value)}
+                  rows={12}
+                  className="block w-full rounded-lg border border-gray-300 p-3 font-mono text-xs text-gray-900 shadow-sm focus:border-purple-500 focus:outline-none"
+                />
+              </div>
             </div>
           )}
 
@@ -546,9 +549,16 @@ function EnviarAtividadeContent() {
                       aiForm.conteudo,
                       aiForm.laudoAluno,
                       aiForm.objetivos,
-                      customImageDataUrls.length > 0 ? customImageDataUrls : undefined
+                      customImageDataUrls.length > 0 ? customImageDataUrls : undefined,
+                      {
+                        buscarImagensWeb: autoSearchWeb,
+                        termoBuscaImagens: aiForm.conteudo,
+                      }
                     );
 
+                    if (resIA.imagens && resIA.imagens.length > 0) {
+                      setCustomImageDataUrls(resIA.imagens);
+                    }
                     setGeneratedText(resIA.texto);
                     setAiFormStep('review');
                   } catch (err: any) {
