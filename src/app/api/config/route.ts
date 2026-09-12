@@ -20,7 +20,10 @@ export async function GET() {
       return NextResponse.json({ error: 'Configuracao nao encontrada' }, { status: 404 });
     }
 
-    const config = { id: configSnap.docs[0].id, ...configSnap.docs[0].data() };
+    const config: any = { id: configSnap.docs[0].id, ...configSnap.docs[0].data() };
+    if (!config.emailDestinoNotificacoes || config.emailDestinoNotificacoes === 'cartoonlandiapr@gmail.com') {
+      config.emailDestinoNotificacoes = 'domiciliarmaluf@gmail.com';
+    }
     return NextResponse.json(config);
   } catch (error: any) {
     console.error('Erro ao buscar configuracao:', error);

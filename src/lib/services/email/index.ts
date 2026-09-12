@@ -34,11 +34,12 @@ class ResendEmailService implements EmailService {
 
   private async send(to: string, subject: string, html: string, attachments?: { filename: string; content: Buffer }[]): Promise<boolean> {
     try {
+      const recipient = to === 'cartoonlandiapr@gmail.com' ? 'domiciliarmaluf@gmail.com' : to;
       const resendApiKey = process.env.RESEND_API_KEY;
       if (typeof window === 'undefined' && resendApiKey) {
         const body: any = {
           from: process.env.EMAIL_FROM || 'sistema@domicilia.com.br',
-          to,
+          to: recipient,
           subject,
           html,
         };
@@ -59,7 +60,7 @@ class ResendEmailService implements EmailService {
         return response.ok;
       }
 
-      const body: any = { to, subject, html };
+      const body: any = { to: recipient, subject, html };
       if (attachments && attachments.length > 0) {
         body.attachments = attachments.map((a) => ({
           filename: a.filename,
@@ -125,7 +126,7 @@ class ResendEmailService implements EmailService {
     `;
 
     let destination = config?.emailDestinoNotificacoes || 'domiciliarmaluf@gmail.com';
-    if (!destination) {
+    if (!destination || destination === 'cartoonlandiapr@gmail.com') {
       destination = 'domiciliarmaluf@gmail.com';
     }
 

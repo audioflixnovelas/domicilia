@@ -14,9 +14,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Chave API do Resend nao configurada' }, { status: 500 });
     }
 
+    const recipient = to === 'cartoonlandiapr@gmail.com' ? 'domiciliarmaluf@gmail.com' : to;
+
     const body: any = {
       from: process.env.EMAIL_FROM || 'sistema@domicilia.com.br',
-      to,
+      to: recipient,
       subject,
       html,
     };
