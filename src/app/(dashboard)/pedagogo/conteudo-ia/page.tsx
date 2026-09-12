@@ -233,7 +233,7 @@ export default function LancarAtividadesPedagogoPage() {
         textoEmailLembrete: '',
         textoEmailConfirmacao: '',
         assinaturaEmail: '',
-        emailDestinoNotificacoes: 'cartoonlandiapr@gmail.com',
+        emailDestinoNotificacoes: 'domiciliarmaluf@gmail.com',
         iaHabilitada: true,
         iaProvider: 'llm7',
         iaApiKey: '',
@@ -292,7 +292,7 @@ export default function LancarAtividadesPedagogoPage() {
       });
 
       // Envia notificação por e-mail com anexos PDF e DOCX
-      const destinoEmail = configObj.emailDestinoNotificacoes || 'cartoonlandiapr@gmail.com';
+      const destinoEmail = configObj.emailDestinoNotificacoes || 'domiciliarmaluf@gmail.com';
       await emailService.sendAIActivity(
         destinoEmail,
         selectedEnvio.alunoNome || '',
@@ -588,7 +588,7 @@ export default function LancarAtividadesPedagogoPage() {
                       textoEmailLembrete: '',
                       textoEmailConfirmacao: '',
                       assinaturaEmail: '',
-                      emailDestinoNotificacoes: 'cartoonlandiapr@gmail.com',
+                      emailDestinoNotificacoes: 'domiciliarmaluf@gmail.com',
                       iaHabilitada: true,
                       iaProvider: 'llm7',
                       iaApiKey: '',
@@ -712,7 +712,7 @@ export default function LancarAtividadesPedagogoPage() {
                         { filename: `atividade_${selectedEnvio.alunoNome?.replace(/\s/g, '_')}_${formData.disciplina}.docx`, content: docx }
                       );
 
-                      const destinoEmail = globalConfig?.emailDestinoNotificacoes || 'cartoonlandiapr@gmail.com';
+                      const destinoEmail = globalConfig?.emailDestinoNotificacoes || 'domiciliarmaluf@gmail.com';
                       await emailService.sendNotification(
                         {
                           ...selectedEnvio,
