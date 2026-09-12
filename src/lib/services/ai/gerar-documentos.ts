@@ -560,3 +560,133 @@ export function gerarPDF(atividade: AtividadeData): Buffer {
 
   return Buffer.from(doc.output('arraybuffer'));
 }
+
+/**
+ * Gera uma URL de blob do PDF para pré-visualização no navegador.
+ * Retorna string vazia em ambiente servidor (sem window).
+ */
+export function previewPDF(atividade: AtividadeData): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    const { titulo, linhas } = parseAtividade(atividade.conteudo);
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    const maxWidth = pageWidth - 2 * margin;
+    let y = margin;
+
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ATIVIDADE DOMICILIAR - COLÉGIO MALUF', pageWidth / 2, y, { align: 'center' });
+    y += 12;
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Disciplina: ${atividade.disciplina} | Série: ${atividade.serie}`, margin, y);
+    y += 6;
+    doc.text(`Turma: ${atividade.turma} | Aluno(a): ${atividade.aluno}`, margin, y);
+    y += 6;
+    doc.text('Data: ____/____/________', margin, y);
+    y += 10;
+
+    doc.setDrawColor(200);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 10;
+
+    const ehGeometria =
+      atividade.disciplina.toLowerCase().includes('matemática') ||
+      atividade.disciplina.toLowerCase().includes('geometria') ||
+      atividade.conteudo.toLowerCase().includes('triângulo') ||
+      atividade.conteudo.toLowerCase().includes('[figura:');
+
+    const listaImagens: string[] = atividade.imagens ? [...atividade.imagens] : [];
+    if (ehGeometria && listaImagens.length === 0) {
+      listaImagens.push(generateRightTriangleDataUrl());
+    }
+
+    if (listaImagens.length > 0) {
+      let pdfImgIdx = 1;
+      for (const imgUrl of listaImagens) {
+        try {
+          if (y > 170) { doc.addPage(); y = margin; }
+          const imgWidth = 145;
+          const imgHeight = 85;
+          const xPos = (pageWidth - imgWidth) / 2;
+          doc.setDrawColor(210, 220, 230);
+          doc.setLineWidth(0.5);
+          doc.rect(xPos - 1.5, y - 1.5, imgWidth + 3, imgHeight + 3);
+          const format = imgUrl.includes('data:image/svg+xml') ? 'SVG' : imgUrl.includes('image/png') ? 'PNG' : 'JPEG';
+          doc.addImage(imgUrl, format as any, xPos, y, imgWidth, imgHeight);
+          y += imgHeight + 4.5;
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'italic');
+          doc.setTextColor(100, 100, 100);
+          doc.text(`Figura ${pdfImgIdx}: Material e ilustração de apoio pedagógico`, pageWidth / 2, y, { align: 'center' });
+          doc.setTextColor(0, 0, 0);
+          y += 8;
+          pdfImgIdx++;
+        } catch { /* ignora imagem inválida no preview */ }
+      }
+    }
+
+    let inPdfTable = false;
+    let pdfTableHead: string[] = [];
+    let pdfTableBody: string[][] = [];
+
+    const flushPdfTable = () => {
+      if (pdfTableBody.length === 0 && pdfTableHead.length === 0) return;
+      autoTable(doc, {
+        startY: y,
+        head: pdfTableHead.length > 0 ? [pdfTableHead] : undefined,
+        body: pdfTableBody,
+        margin: { left: margin, right: margin },
+        styles: { fontSize: 9, cellPadding: 3 },
+        headStyles: { fillColor: [59, 130, 246] },
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+      pdfTableHead = [];
+      pdfTableBody = [];
+      inPdfTable = false;
+    };
+
+    doc.setFontSize(11);
+
+    for (const linha of linhas.slice(1)) {
+      const isTableRow = linha.trim().startsWith('|') && linha.trim().endsWith('|');
+      if (isTableRow) {
+        if (linha.includes('---')) continue;
+        const cells = linha.split('|').slice(1, -1).map((c) => c.trim().replace(/\*\*/g, ''));
+        if (!inPdfTable) { inPdfTable = true; pdfTableHead = cells; } else { pdfTableBody.push(cells); }
+        continue;
+      } else if (inPdfTable) { flushPdfTable(); }
+
+      const isTitle = linha.startsWith('##') || linha.startsWith('#');
+      const text = linha.replace(/^#+\s*/, '').replace(/\*\*/g, '');
+      if (isTitle) { doc.setFont('helvetica', 'bold'); doc.setFontSize(12); }
+      else { doc.setFont('helvetica', 'normal'); doc.setFontSize(10); }
+
+      if (y > 270) { doc.addPage(); y = margin; }
+
+      const lines = doc.splitTextToSize(text, maxWidth);
+      doc.text(lines, margin, y);
+      y += lines.length * 5 + 2;
+
+      if (text.includes('?') && !text.toLowerCase().startsWith('resposta:')) {
+        if (y > 270) { doc.addPage(); y = margin; }
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.text('Resposta: ____________________________________________________', margin, y);
+        y += 8;
+      }
+    }
+
+    if (inPdfTable) { flushPdfTable(); }
+
+    const blob = new Blob([doc.output('arraybuffer')], { type: 'application/pdf' });
+    return URL.createObjectURL(blob);
+  } catch (err) {
+    console.error('previewPDF error:', err);
+    return '';
+  }
+}

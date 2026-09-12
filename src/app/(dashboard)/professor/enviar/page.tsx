@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -71,6 +71,13 @@ function EnviarAtividadeContent() {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiSuccessMsg, setAiSuccessMsg] = useState('');
   const [aiErrorMsg, setAiErrorMsg] = useState('');
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState('');
+
+  // Refs para scroll sincronizado
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const scrollingFromTextarea = useRef(false);
+  const scrollingFromIframe = useRef(false);
 
   const handleCustomImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
@@ -90,6 +97,61 @@ function EnviarAtividadeContent() {
   const removeCustomImage = (index: number) => {
     setCustomImageDataUrls((prev) => prev.filter((_, i) => i !== index));
   };
+
+  // Regera o preview do PDF toda vez que o texto ou imagens mudam (com debounce de 600ms)
+  useEffect(() => {
+    if (aiStep !== 'review' || !generatedText) return;
+
+    const timer = setTimeout(async () => {
+      const { previewPDF } = await import('@/lib/services/ai/gerar-documentos');
+      // Libera URL anterior para evitar memory leak
+      setPdfPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return '';
+      });
+      const url = previewPDF({
+        titulo: 'Atividade Domiciliar',
+        disciplina: formData.disciplina,
+        serie: aiForm.serie || '',
+        turma: turma?.nome || '',
+        aluno: aluno?.nome || '',
+        conteudo: generatedText,
+        imagens: customImageDataUrls.length > 0 ? customImageDataUrls : undefined,
+      });
+      setPdfPreviewUrl(url);
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [generatedText, customImageDataUrls, aiStep]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Scroll sincronizado: textarea → iframe
+  const handleTextareaScroll = useCallback(() => {
+    if (scrollingFromIframe.current) return;
+    const ta = textareaRef.current;
+    const iframe = iframeRef.current;
+    if (!ta || !iframe?.contentWindow) return;
+    scrollingFromTextarea.current = true;
+    const ratio = ta.scrollTop / Math.max(1, ta.scrollHeight - ta.clientHeight);
+    const iDoc = iframe.contentWindow.document.documentElement;
+    iDoc.scrollTop = ratio * Math.max(1, iDoc.scrollHeight - iDoc.clientHeight);
+    requestAnimationFrame(() => { scrollingFromTextarea.current = false; });
+  }, []);
+
+  // Scroll sincronizado: iframe → textarea (registrado após iframe carregar)
+  const handleIframeLoad = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (!iframe?.contentWindow) return;
+    iframe.contentWindow.addEventListener('scroll', () => {
+      if (scrollingFromTextarea.current) return;
+      const ta = textareaRef.current;
+      if (!ta) return;
+      scrollingFromIframe.current = true;
+      const iDoc = iframe.contentWindow!.document.documentElement;
+      const ratio = iDoc.scrollTop / Math.max(1, iDoc.scrollHeight - iDoc.clientHeight);
+      ta.scrollTop = ratio * Math.max(1, ta.scrollHeight - ta.clientHeight);
+      requestAnimationFrame(() => { scrollingFromIframe.current = false; });
+    });
+  }, []);
 
   useEffect(() => {
     if (!authLoading && user && turmaId && alunoId) loadData();
@@ -385,7 +447,7 @@ function EnviarAtividadeContent() {
         isOpen={aiModalOpen}
         onClose={() => setAiModalOpen(false)}
         title={`Gerar Atividade por IA - ${aluno?.nome || ''}`}
-        size="lg"
+        size={aiStep === 'review' ? 'xl' : 'lg'}
       >
         <div className="space-y-4">
           <div className="bg-purple-50 p-3 rounded-lg text-sm text-purple-900 flex justify-between items-center">
@@ -459,11 +521,58 @@ function EnviarAtividadeContent() {
               </div>
             </>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
+              {/* Layout de duas colunas: editor + preview do PDF */}
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                {/* Coluna esquerda: textarea editável */}
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                    ✏️ Editor — revise e edite o texto:
+                  </label>
+                  <textarea
+                    ref={textareaRef}
+                    value={generatedText}
+                    onChange={(e) => setGeneratedText(e.target.value)}
+                    onScroll={handleTextareaScroll}
+                    rows={20}
+                    className="block w-full rounded-lg border border-gray-300 p-3 font-mono text-xs text-gray-900 shadow-sm focus:border-purple-500 focus:outline-none resize-none"
+                    style={{ minHeight: '420px' }}
+                  />
+                </div>
+
+                {/* Coluna direita: prévia do PDF em tempo real */}
+                <div className="flex flex-col gap-1">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                    📄 Prévia do PDF:
+                    {!pdfPreviewUrl && (
+                      <span className="text-[10px] font-normal text-purple-500 animate-pulse">gerando…</span>
+                    )}
+                  </label>
+                  {pdfPreviewUrl ? (
+                    <iframe
+                      ref={iframeRef}
+                      src={pdfPreviewUrl}
+                      onLoad={handleIframeLoad}
+                      title="Prévia do PDF"
+                      className="w-full rounded-lg border border-gray-200 shadow-sm bg-gray-50"
+                      style={{ minHeight: '420px', height: '100%' }}
+                    />
+                  ) : (
+                    <div
+                      className="flex items-center justify-center rounded-lg border border-dashed border-purple-200 bg-purple-50/40 text-purple-400 text-xs"
+                      style={{ minHeight: '420px' }}
+                    >
+                      Gerando prévia…
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Miniaturas das imagens inseridas */}
               {customImageDataUrls.length > 0 && (
                 <div className="rounded-lg border border-purple-200 bg-purple-50/60 p-3">
                   <p className="text-xs font-semibold text-purple-900 mb-2">
-                    ✓ {customImageDataUrls.length} imagem(ns) educativa(s) inserida(s) no cabeçalho do PDF e DOCX:
+                    ✓ {customImageDataUrls.length} imagem(ns) educativa(s) inserida(s) no PDF e DOCX:
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {customImageDataUrls.map((url, idx) => (
@@ -482,18 +591,6 @@ function EnviarAtividadeContent() {
                   </div>
                 </div>
               )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Revise e edite o texto da atividade antes do envio final:
-                </label>
-                <textarea
-                  value={generatedText}
-                  onChange={(e) => setGeneratedText(e.target.value)}
-                  rows={12}
-                  className="block w-full rounded-lg border border-gray-300 p-3 font-mono text-xs text-gray-900 shadow-sm focus:border-purple-500 focus:outline-none"
-                />
-              </div>
             </div>
           )}
 
