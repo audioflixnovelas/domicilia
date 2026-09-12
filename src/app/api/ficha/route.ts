@@ -44,17 +44,20 @@ export async function POST(request: NextRequest) {
     xml = xml.replace(/w:hAnsi="[^"]*"/g, 'w:hAnsi="Arial"');
 
     // Substitui textos diretamente nos <w:t>
-    xml = xml.replace(/>PROFESSOR: <\//g, `>PROFESSOR: ${dados.professor}</`);
-    xml = xml.replace(/>COMPONENTE\/DISCIPLINA: <\//g, `>COMPONENTE/DISCIPLINA: ${dados.disciplina}</`);
-    xml = xml.replace(/>ESTUDANTE: <\//g, `>ESTUDANTE: ${dados.aluno}</`);
-    xml = xml.replace(/>TURMA: <\//g, `>TURMA: ${dados.turma}</`);
-    xml = xml.replace(/>PEDAGOGA RESP.<\//g, `>PEDAGOGA RESP.: ${dados.pedagoga}</`);
-    xml = xml.replace(/>QUINZENA\/DATA: <\//g, `>QUINZENA/DATA: ${dados.data}</`);
-    xml = xml.replace(/>MÊS:<\//g, `>MES: ${dados.data}</`);
-    xml = xml.replace(/>Nº DE AULAS:<\//g, `>NO DE AULAS: ${dados.numAulas}</`);
-
-    // Remove valor antigo do QUINZENA/DATA se existir
-    xml = xml.replace(/>05\/02\/2026  a  27\/02\/2026 - <\//g, `>${dados.data}</`);
+    xml = xml.replace(/>PROFESSOR: <\//g, `>PROFESSOR: ${escapeXml(dados.professor || '')}</`);
+    xml = xml.replace(/>COMPONENTE\/DISCIPLINA: <\//g, `>COMPONENTE/DISCIPLINA: ${escapeXml(dados.disciplina || '')}</`);
+    xml = xml.replace(/>ESTUDANTE: <\//g, `>ESTUDANTE: ${escapeXml(dados.aluno || '')}</`);
+    xml = xml.replace(/>TURMA: <\//g, `>TURMA: ${escapeXml(dados.turma || '')}</`);
+    xml = xml.replace(/>PEDAGOGA RESP.<\//g, `>PEDAGOGA RESP.: ${escapeXml(dados.pedagoga || '')}</`);
+    // Separa Quinzena/Data do Mês no preenchimento
+    if (xml.includes('05/02/2026')) {
+      xml = xml.replace(/>QUINZENA\/DATA: <\//g, `>QUINZENA/DATA: </`);
+      xml = xml.replace(/>05\/02\/2026\s*a\s*27\/02\/2026\s*-\s*<\//g, `>${escapeXml(dados.data || '')}</`);
+    } else {
+      xml = xml.replace(/>QUINZENA\/DATA: <\//g, `>QUINZENA/DATA: ${escapeXml(dados.data || '')}</`);
+    }
+    xml = xml.replace(/>MÊS:<\//g, `>MÊS: ${escapeXml(dados.mes || '')}</`);
+    xml = xml.replace(/>Nº DE AULAS:<\//g, `>Nº DE AULAS: ${escapeXml(dados.numAulas || '')}</`);
 
     // Substitui "FICHA 1:" por "FICHA X:"
     xml = xml.replace(/>FICHA 1:<\//g, `>FICHA ${dados.quinzena || '1'}:</`);

@@ -50,6 +50,7 @@ export default function LancarAtividadesPedagogoPage() {
     exerciciosExemplo: '',
     numAulas: '4',
     dataFicha: '',
+    mesFicha: '',
     quinzena: '1',
     trimestre: '1',
     anoLetivo: new Date().getFullYear().toString(),
@@ -200,6 +201,7 @@ export default function LancarAtividadesPedagogoPage() {
       exerciciosExemplo: '',
       numAulas: '4',
       dataFicha: '',
+      mesFicha: '',
       quinzena: '1',
       trimestre: '1',
       anoLetivo: new Date().getFullYear().toString(),
@@ -480,12 +482,18 @@ export default function LancarAtividadesPedagogoPage() {
               {/* Seção da Ficha de Atividade Oficial em DOCX */}
               <div className="border-t pt-4 mt-2">
                 <h4 className="font-semibold text-gray-900 mb-3 text-sm">Ficha de Atividade Pedagógica (DOCX)</h4>
-                <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
                   <Input
                     label="Nº de Aulas"
                     value={formData.numAulas}
                     onChange={(e) => setFormData({ ...formData, numAulas: e.target.value })}
                     placeholder="Ex: 4"
+                  />
+                  <Input
+                    label="Mês"
+                    value={formData.mesFicha}
+                    onChange={(e) => setFormData({ ...formData, mesFicha: e.target.value })}
+                    placeholder="Ex: Fevereiro"
                   />
                   <Input
                     label="Data / Período da Ficha"
@@ -687,6 +695,7 @@ export default function LancarAtividadesPedagogoPage() {
                           turma: selectedEnvio.turmaNome || '',
                           pedagoga: user.name,
                           data: formData.dataFicha || getCurrentDate(),
+                          mes: formData.mesFicha || '',
                           numAulas: formData.numAulas || '4',
                           encaminhamento: 'Atividade Gerada por IA pelo Pedagogo',
                           roteiro: formData.roteiro || formData.conteudo || 'Realizar exercícios da atividade adaptada em anexo',

@@ -7,6 +7,10 @@ export interface FichaData {
   turma: string;
   pedagoga: string;
   data: string;
+  mes?: string;
+  quinzena?: string;
+  trimestre?: string;
+  anoLetivo?: string;
   numAulas: string;
   encaminhamento: string;
   roteiro: string;
@@ -37,14 +41,14 @@ export async function gerarFicha(d: FichaData): Promise<Buffer> {
     sections: [{
       properties: { page: { margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 } } },
       children: [
-        new Paragraph({ children: [new TextRun({ text: 'Encaminhamento de conteudo/atividade Domiciliar - 1o TRIMESTRE/2025', bold: true, font: 'Arial', size: 28 })], spacing: { after: 57 }, indent: { right: 288 }, alignment: AlignmentType.BOTH }),
+        new Paragraph({ children: [new TextRun({ text: `Encaminhamento de conteúdo/atividade Domiciliar - ${d.trimestre || '1'}º TRIMESTRE/${d.anoLetivo || '2026'}`, bold: true, font: 'Arial', size: 28 })], spacing: { after: 57 }, indent: { right: 288 }, alignment: AlignmentType.BOTH }),
         new Table({
           width: { size: 10305, type: WidthType.DXA },
           rows: [
             new TableRow({ children: [cell('PROFESSOR: ', d.professor), cell('COMPONENTE/DISCIPLINA: ', d.disciplina, 3)] }),
             new TableRow({ children: [cell('ESTUDANTE: ', d.aluno, 2), cell('TURMA: ', d.turma, 2)] }),
             new TableRow({ children: [cell('PEDAGOGA RESP.: ', d.pedagoga, 2), cell('QUINZENA/DATA: ', d.data, 2)] }),
-            new TableRow({ children: [cell('MES: ', d.data), cell('FICHA 1:', ''), cell('NO DE AULAS:', d.numAulas)] }),
+            new TableRow({ children: [cell('MÊS: ', d.mes || ''), cell('FICHA 1:', d.quinzena ? `FICHA ${d.quinzena}:` : ''), cell('Nº DE AULAS:', d.numAulas)] }),
           ],
         }),
         new Paragraph({ children: [], spacing: { after: 0, line: 240 } }),

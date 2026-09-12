@@ -44,6 +44,7 @@ function EnviarAtividadeContent() {
     observacoes: '',
     numAulas: '',
     data: '',
+    mes: '',
     quinzena: '1',
     trimestre: '1',
     anoLetivo: new Date().getFullYear().toString(),
@@ -211,6 +212,7 @@ function EnviarAtividadeContent() {
           turma: turma?.nome || '',
           pedagoga: pedagogaNome,
           data: formData.data || getCurrentDate(),
+          mes: formData.mes || '',
           numAulas: formData.numAulas,
           encaminhamento: file ? 'Atividade em anexo' : 'Atividade disponivel na plataforma',
           roteiro: formData.roteiro || (file ? 'Resolver atividade anexada' : 'Acessar plataforma e realizar atividade'),
@@ -280,10 +282,11 @@ function EnviarAtividadeContent() {
 
             <div className="border-t pt-4">
               <h4 className="font-medium text-gray-900 mb-3">Ficha de Atividade (DOCX)</h4>
-              <p className="text-sm text-gray-500 mb-3">Preencha os campos da ficha que sera gerada em DOCX</p>
+              <p className="text-sm text-gray-500 mb-3">Preencha os campos da ficha que será gerada em DOCX</p>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Input label="Nº de Aulas" value={formData.numAulas} onChange={(e) => setFormData({ ...formData, numAulas: e.target.value })} placeholder="Ex: 4" />
+                <Input label="Mês" value={formData.mes} onChange={(e) => setFormData({ ...formData, mes: e.target.value })} placeholder="Ex: Fevereiro" />
                 <Input label="Quinzena/Data" value={formData.data} onChange={(e) => setFormData({ ...formData, data: e.target.value })} placeholder="Ex: 05/02/2026 a 27/02/2026" />
               </div>
 
@@ -320,28 +323,28 @@ function EnviarAtividadeContent() {
 
               <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Roteiro de Estudos</label>
-                <textarea value={formData.roteiro} onChange={(e) => setFormData({ ...formData, roteiro: e.target.value })} rows={3} className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none" placeholder={file ? 'Roteiro de estudos do aluno...' : 'Ex: Acessar link da plataforma e seguir instrucoes'} />
+                <textarea value={formData.roteiro} onChange={(e) => setFormData({ ...formData, roteiro: e.target.value })} rows={3} className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none" placeholder={file ? 'Roteiro de estudos do aluno...' : 'Ex: Acessar link da plataforma e seguir instruções'} />
               </div>
 
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Observacoes da Ficha</label>
-                <textarea value={formData.observacoes} onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })} rows={2} className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none" placeholder="Observacoes adicionais..." />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Observações da Ficha</label>
+                <textarea value={formData.observacoes} onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })} rows={2} className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none" placeholder="Observações adicionais..." />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Comentarios (opcional)</label>
-              <textarea value={formData.comentarios} onChange={(e) => setFormData({ ...formData, comentarios: e.target.value })} rows={3} className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none" placeholder="Observacoes..." />
+              <label className="block text-sm font-medium text-gray-700 mb-2">Comentários (opcional)</label>
+              <textarea value={formData.comentarios} onChange={(e) => setFormData({ ...formData, comentarios: e.target.value })} rows={3} className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none" placeholder="Observações..." />
             </div>
 
             {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
 
             <div className="bg-blue-50 p-4 rounded-lg">
-              <h4 className="font-medium text-blue-900 mb-2">Anexos que serao enviados:</h4>
+              <h4 className="font-medium text-blue-900 mb-2">Anexos que serão enviados:</h4>
               <ul className="text-sm text-blue-800 space-y-1">
                 <li>• Ficha.docx (preenchida com os dados acima)</li>
                 {file && <li>• Arquivo da atividade (seu upload)</li>}
-                {!file && <li>• Instrucoes para acessar a plataforma</li>}
+                {!file && <li>• Instruções para acessar a plataforma</li>}
               </ul>
             </div>
 
@@ -605,6 +608,7 @@ function EnviarAtividadeContent() {
                           turma: turma?.nome || '',
                           pedagoga: pedagogaNome,
                           data: formData.data || getCurrentDate(),
+                          mes: formData.mes || '',
                           numAulas: formData.numAulas || '4',
                           encaminhamento: fileUpload ? 'Atividade em anexo e gerada por IA' : 'Atividade Gerada por IA em anexo',
                           roteiro: formData.roteiro || aiForm.conteudo || 'Realizar exercícios da atividade adaptada em anexo',
