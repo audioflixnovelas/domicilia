@@ -69,7 +69,7 @@ export default function TurmaAlunosPage() {
             status: 'pendente' as const,
             arquivo: null,
             comentarios: '',
-            dataEnvio: aluno.dataInicio || getCurrentDate(),
+            dataEnvio: getCurrentDate(),
             horaEnvio: getCurrentTime(),
             pedagogoId: turmaData?.pedagogoId || '',
             alunoNome: aluno.nome,

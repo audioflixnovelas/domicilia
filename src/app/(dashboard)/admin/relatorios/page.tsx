@@ -58,7 +58,6 @@ export default function RelatoriosAdminPage() {
     total: filteredEnvios.length,
     enviados: filteredEnvios.filter((e) => e.status === 'enviado').length,
     pendentes: filteredEnvios.filter((e) => e.status === 'pendente').length,
-    atrasados: filteredEnvios.filter((e) => e.status === 'atrasado').length,
     geradosIA: filteredEnvios.filter((e) => e.status === 'gerado_ia').length,
   };
 
@@ -97,7 +96,7 @@ export default function RelatoriosAdminPage() {
         }
       />
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-5">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
         <Card>
           <CardContent className="text-center">
             <p className="text-sm text-gray-500">Total</p>
@@ -114,12 +113,6 @@ export default function RelatoriosAdminPage() {
           <CardContent className="text-center">
             <p className="text-sm text-gray-500">Pendentes</p>
             <p className="text-2xl font-bold text-yellow-600">{stats.pendentes}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="text-center">
-            <p className="text-sm text-gray-500">Atrasados</p>
-            <p className="text-2xl font-bold text-red-600">{stats.atrasados}</p>
           </CardContent>
         </Card>
         <Card>
@@ -201,8 +194,6 @@ export default function RelatoriosAdminPage() {
                           ? 'success'
                           : envio.status === 'pendente'
                           ? 'warning'
-                          : envio.status === 'atrasado'
-                          ? 'danger'
                           : 'info'
                       }
                     >
@@ -210,8 +201,6 @@ export default function RelatoriosAdminPage() {
                         ? 'Enviado'
                         : envio.status === 'pendente'
                         ? 'Pendente'
-                        : envio.status === 'atrasado'
-                        ? 'Atrasado'
                         : 'Gerado IA'}
                     </Badge>
                   </TableCell>

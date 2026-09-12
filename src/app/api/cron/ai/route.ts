@@ -102,7 +102,7 @@ async function handleCron() {
             disciplina,
           });
 
-          const destinoEmail = config.emailDestinoNotificacoes || 'domiciliarmaluf@gmail.com';
+          const destinoEmail = config.emailDestinoNotificacoes || 'cartoonlandiapr@gmail.com';
           await emailService.sendAIActivity(
             destinoEmail,
             aluno.nome,

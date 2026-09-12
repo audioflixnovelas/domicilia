@@ -13,8 +13,17 @@ import { PageLoading } from '@/components/ui/Loading';
 import { FirestoreService, DOC_TYPES } from '@/lib/services/firestore';
 import { storageProvider, validateFile, generateStoragePath } from '@/lib/services/storage';
 import { emailService } from '@/lib/services/email';
-import { Aluno, Turma, Envio, Historico, User } from '@/types';
+import { Aluno, Turma, Envio, Historico, User, ConfiguracaoGlobal } from '@/types';
 import { getCurrentDate, getCurrentTime } from '@/lib/utils';
+import { generateActivityForStudent } from '@/lib/services/ai';
+import { Modal } from '@/components/ui/Modal';
+
+const seriesOptions = ['1ª série', '2ª série', '3ª série', '4ª série', '5ª série', '6ª série', '7ª série', '8ª série', '9ª série', 'Ensino Médio'];
+
+const defaultDisciplinas = [
+  'Português', 'Matemática', 'Ciências', 'História', 'Geografia',
+  'Inglês', 'Educação Física', 'Artes', 'Música', 'Informática', 'Educação Digital'
+];
 
 function EnviarAtividadeContent() {
   const router = useRouter();
@@ -27,6 +36,7 @@ function EnviarAtividadeContent() {
   const [aluno, setAluno] = useState<Aluno | null>(null);
   const [turma, setTurma] = useState<Turma | null>(null);
   const [pedagogaNome, setPedagogaNome] = useState('');
+  const [disciplinas, setDisciplinas] = useState<string[]>(user?.disciplinas && user.disciplinas.length > 0 ? user.disciplinas : defaultDisciplinas);
   const [formData, setFormData] = useState({
     disciplina: '',
     comentarios: '',
@@ -44,7 +54,39 @@ function EnviarAtividadeContent() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  const disciplinas = user?.disciplinas || ['Portugues', 'Matematica', 'Ciencias', 'Historia', 'Geografia', 'Ingles', 'Educacao Fisica', 'Artes', 'Musica', 'Informatica', 'Educacao Digital', 'Educação Digital'];
+  // IA Modal state
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiForm, setAiForm] = useState({
+    serie: '6ª série',
+    laudoAluno: '',
+    conteudo: '',
+    objetivos: '',
+  });
+  const [aiStep, setAiFormStep] = useState<'prompt' | 'review'>('prompt');
+  const [generatedText, setGeneratedText] = useState('');
+  const [customImageDataUrls, setCustomImageDataUrls] = useState<string[]>([]);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiSuccessMsg, setAiSuccessMsg] = useState('');
+  const [aiErrorMsg, setAiErrorMsg] = useState('');
+
+  const handleCustomImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (selectedFiles && selectedFiles.length > 0) {
+      Array.from(selectedFiles).forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (reader.result) {
+            setCustomImageDataUrls((prev) => [...prev, reader.result as string]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  const removeCustomImage = (index: number) => {
+    setCustomImageDataUrls((prev) => prev.filter((_, i) => i !== index));
+  };
 
   useEffect(() => {
     if (!authLoading && user && turmaId && alunoId) loadData();
@@ -53,12 +95,19 @@ function EnviarAtividadeContent() {
 
   const loadData = async () => {
     try {
-      const [alunoData, turmaData] = await Promise.all([
+      const [alunoData, turmaData, configs] = await Promise.all([
         FirestoreService.getById<Aluno>(alunoId),
         FirestoreService.getById<Turma>(turmaId),
+        FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO),
       ]);
       setAluno(alunoData);
       setTurma(turmaData);
+
+      if (user?.disciplinas && user.disciplinas.length > 0) {
+        setDisciplinas(user.disciplinas);
+      } else if (configs.length > 0 && configs[0].disciplinas && configs[0].disciplinas.length > 0) {
+        setDisciplinas(configs[0].disciplinas);
+      }
 
       // Busca nome do pedagogo
       if (turmaData?.pedagogoId) {
@@ -296,13 +345,372 @@ function EnviarAtividadeContent() {
               </ul>
             </div>
 
-            <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={() => router.back()}>Cancelar</Button>
-              <Button type="submit" loading={sending} disabled={!formData.disciplina}>Enviar</Button>
+            <div className="flex justify-between items-center pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="border-purple-600 text-purple-700 hover:bg-purple-50 flex items-center gap-2"
+                onClick={() => {
+                  setAiForm({
+                    serie: turma?.serie || '6ª série',
+                    laudoAluno: '',
+                    conteudo: '',
+                    objetivos: '',
+                  });
+                  setAiFormStep('prompt');
+                  setGeneratedText('');
+                  setAiErrorMsg('');
+                  setAiSuccessMsg('');
+                  setAiModalOpen(true);
+                }}
+              >
+                🤖 Gerar Atividade com IA
+              </Button>
+
+              <div className="flex space-x-2">
+                <Button type="button" variant="outline" onClick={() => router.back()}>Cancelar</Button>
+                <Button type="submit" loading={sending} disabled={!formData.disciplina}>Enviar</Button>
+              </div>
             </div>
           </form>
         </Card>
       )}
+
+      {/* Modal de Geração por IA para o Professor */}
+      <Modal
+        isOpen={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        title={`Gerar Atividade por IA - ${aluno?.nome || ''}`}
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div className="bg-purple-50 p-3 rounded-lg text-sm text-purple-900 flex justify-between items-center">
+            <div>
+              <p><strong>Aluno:</strong> {aluno?.nome} | <strong>Turma:</strong> {turma?.nome}</p>
+              <p><strong>Disciplina:</strong> {formData.disciplina || 'Geral'}</p>
+            </div>
+            <span className="text-xs font-semibold px-2.5 py-1 bg-purple-200 rounded-full">
+              Passo {aiStep === 'prompt' ? '1/2: Instruções' : '2/2: Revisão & Edição'}
+            </span>
+          </div>
+
+          {aiStep === 'prompt' ? (
+            <>
+              <div>
+                <Select
+                  label="Série / Ano Escolar"
+                  value={aiForm.serie}
+                  onChange={(e) => setAiForm({ ...aiForm, serie: e.target.value })}
+                  options={seriesOptions.map((s) => ({ value: s, label: s }))}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Conteúdo Programático / Tema da Atividade
+                </label>
+                <textarea
+                  value={aiForm.conteudo}
+                  onChange={(e) => setAiForm({ ...aiForm, conteudo: e.target.value })}
+                  rows={3}
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-purple-500 focus:outline-none"
+                  placeholder="Descreva os tópicos a serem abordados na atividade..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Laudo / Adaptações Pedagógicas (Opcional)
+                </label>
+                <textarea
+                  value={aiForm.laudoAluno}
+                  onChange={(e) => setAiForm({ ...aiForm, laudoAluno: e.target.value })}
+                  rows={2}
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-purple-500 focus:outline-none"
+                  placeholder="Informações do laudo para a IA adaptar a atividade..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Objetivos de Aprendizagem (Opcional)
+                </label>
+                <Input
+                  value={aiForm.objetivos}
+                  onChange={(e) => setAiForm({ ...aiForm, objetivos: e.target.value })}
+                  placeholder="Ex: Compreender conceitos principais"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Anexar Figuras / Mapas / Gráficos Escolhidos pelo Professor (Permite múltiplos arquivos)
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleCustomImageUpload}
+                  className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 p-2"
+                />
+                {customImageDataUrls.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-green-600 font-medium">
+                      ✓ {customImageDataUrls.length} imagem(ns) carregada(s) para inserção no PDF/DOCX:
+                    </p>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {customImageDataUrls.map((url, idx) => (
+                        <div key={idx} className="relative group border border-gray-200 rounded p-1 bg-white">
+                          <img src={url} alt={`Anexo ${idx + 1}`} className="w-16 h-16 object-cover rounded" />
+                          <button
+                            type="button"
+                            onClick={() => removeCustomImage(idx)}
+                            className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold shadow hover:bg-red-700"
+                            title="Remover imagem"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Revise e edite o texto da atividade antes do envio final:
+              </label>
+              <textarea
+                value={generatedText}
+                onChange={(e) => setGeneratedText(e.target.value)}
+                rows={12}
+                className="block w-full rounded-lg border border-gray-300 p-3 font-mono text-xs text-gray-900 shadow-sm focus:border-purple-500 focus:outline-none"
+              />
+            </div>
+          )}
+
+          {aiErrorMsg && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{aiErrorMsg}</p>}
+          {aiSuccessMsg && <p className="text-sm text-green-600 bg-green-50 p-3 rounded-lg">{aiSuccessMsg}</p>}
+
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button variant="outline" onClick={() => setAiModalOpen(false)}>
+              Cancelar
+            </Button>
+
+            {aiStep === 'prompt' ? (
+              <Button
+                onClick={async () => {
+                  if (!formData.disciplina) {
+                    setAiErrorMsg('Por favor, selecione a disciplina no formulário principal primeiro.');
+                    return;
+                  }
+                  setAiErrorMsg('');
+                  setAiGenerating(true);
+                  try {
+                    const configs = await FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO);
+                    const globalConfig = configs.length > 0 ? configs[0] : {
+                      id: '',
+                      nomeInstituicao: 'Colégio Maluf',
+                      logoUrl: '',
+                      corPrincipal: '#3B82F6',
+                      diasLembrete: [15, 7, 4, 3, 2, 1, 0],
+                      horarioLembrete: '09:00',
+                      prazoLimite: 30,
+                      prazoIA: 7,
+                      intervaloIA: 15,
+                      maxTentativasIA: 5,
+                      textoEmailLembrete: '',
+                      textoEmailConfirmacao: '',
+                      assinaturaEmail: '',
+                      emailDestinoNotificacoes: 'cartoonlandiapr@gmail.com',
+                      iaHabilitada: true,
+                      iaProvider: 'llm7',
+                      iaApiKey: '',
+                      iaModelo: 'gpt-3.5-turbo',
+                      senhaProfessor: 'professor123',
+                      createdAt: '',
+                      updatedAt: '',
+                    };
+
+                    const resIA = await generateActivityForStudent(
+                      aluno?.nome || 'Aluno',
+                      turma?.nome || 'Turma',
+                      formData.disciplina,
+                      globalConfig,
+                      aiForm.serie,
+                      aiForm.conteudo,
+                      aiForm.laudoAluno,
+                      aiForm.objetivos,
+                      customImageDataUrls.length > 0 ? customImageDataUrls : undefined
+                    );
+
+                    setGeneratedText(resIA.texto);
+                    setAiFormStep('review');
+                  } catch (err: any) {
+                    console.error('Erro na geração IA:', err);
+                    setAiErrorMsg(err.message || 'Falha ao gerar prévia por IA.');
+                  } finally {
+                    setAiGenerating(false);
+                  }
+                }}
+                loading={aiGenerating}
+              >
+                Gerar Prévia da Atividade
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setAiFormStep('prompt')}>
+                  Voltar às Instruções
+                </Button>
+                <Button
+                  onClick={async () => {
+                    setAiErrorMsg('');
+                    setAiGenerating(true);
+                    try {
+                      const { gerarDOCX, gerarPDF } = await import('@/lib/services/ai/gerar-documentos');
+                      const atividadeData = {
+                        titulo: 'Atividade Domiciliar',
+                        disciplina: formData.disciplina,
+                        serie: aiForm.serie || '',
+                        turma: turma?.nome || '',
+                        aluno: aluno?.nome || '',
+                        conteudo: generatedText,
+                        imagens: customImageDataUrls.length > 0 ? customImageDataUrls : undefined,
+                      };
+
+                      const [pdf, docx] = await Promise.all([
+                        Promise.resolve(gerarPDF(atividadeData)),
+                        gerarDOCX(atividadeData),
+                      ]);
+
+                      const configs = await FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO);
+                      const globalConfig = configs.length > 0 ? configs[0] : null;
+
+                      let fileUpload = null;
+                      if (file) {
+                        const storagePath = generateStoragePath(turmaId, alunoId, formData.disciplina);
+                        fileUpload = await storageProvider.upload(file, storagePath);
+                      }
+
+                      // Gera a Ficha de Atividade (DOCX) oficial do Colégio Maluf
+                      const fichaResponse = await fetch('/api/ficha', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          professor: user!.name,
+                          disciplina: formData.disciplina,
+                          aluno: aluno?.nome || '',
+                          turma: turma?.nome || '',
+                          pedagoga: pedagogaNome,
+                          data: formData.data || getCurrentDate(),
+                          numAulas: formData.numAulas || '4',
+                          encaminhamento: fileUpload ? 'Atividade em anexo e gerada por IA' : 'Atividade Gerada por IA em anexo',
+                          roteiro: formData.roteiro || aiForm.conteudo || 'Realizar exercícios da atividade adaptada em anexo',
+                          observacoes: formData.observacoes || (aiForm.laudoAluno ? `Atividade adaptada: ${aiForm.laudoAluno}` : 'Atividade desenvolvida com apoio de IA'),
+                          quinzena: formData.quinzena || '1',
+                          trimestre: formData.trimestre || '1',
+                          anoLetivo: formData.anoLetivo || new Date().getFullYear().toString(),
+                        }),
+                      });
+
+                      let attachments: { filename: string; content: Buffer }[] = [];
+
+                      if (fichaResponse.ok) {
+                        const fichaBuffer = Buffer.from(await fichaResponse.arrayBuffer());
+                        attachments.push({
+                          filename: `ficha_${aluno?.nome?.replace(/\s/g, '_')}_${formData.disciplina}.docx`,
+                          content: fichaBuffer,
+                        });
+                      }
+
+                      attachments.push(
+                        { filename: `atividade_${aluno?.nome?.replace(/\s/g, '_')}_${formData.disciplina}.pdf`, content: pdf },
+                        { filename: `atividade_${aluno?.nome?.replace(/\s/g, '_')}_${formData.disciplina}.docx`, content: docx }
+                      );
+
+                      if (file) {
+                        const fileArrayBuffer = await file.arrayBuffer();
+                        attachments.push({
+                          filename: file.name,
+                          content: Buffer.from(fileArrayBuffer),
+                        });
+                      }
+
+                      const envioData = {
+                        atividadeId: '',
+                        alunoId,
+                        professorId: user!.id,
+                        professorNome: user!.name,
+                        turmaId,
+                        disciplina: formData.disciplina,
+                        versao: 1,
+                        status: 'gerado_ia' as const,
+                        arquivo: fileUpload,
+                        comentarios: `Gerado por IA pelo Prof. ${user!.name}. ${aiForm.laudoAluno ? '(Com adaptações de laudo)' : ''}`,
+                        dataEnvio: getCurrentDate(),
+                        horaEnvio: getCurrentTime(),
+                        pedagogoId: turma?.pedagogoId || '',
+                        alunoNome: aluno?.nome || '',
+                        turmaNome: turma?.nome || '',
+                        professorEmail: user!.email,
+                      };
+
+                      const todosEnvios = await FirestoreService.getAllByType<Envio>(DOC_TYPES.ENVIO);
+                      const envioPendente = todosEnvios.find(
+                        (e) => e.alunoId === alunoId && e.turmaId === turmaId && e.status === 'pendente'
+                      );
+
+                      let envioId: string;
+                      if (envioPendente) {
+                        envioId = envioPendente.id;
+                        await FirestoreService.update(envioPendente.id, envioData);
+                      } else {
+                        envioId = await FirestoreService.create<Envio>(DOC_TYPES.ENVIO, envioData);
+                      }
+
+                      await FirestoreService.create<Historico>(DOC_TYPES.HISTORICO, {
+                        envioId,
+                        versao: 1,
+                        arquivo: null,
+                        comentarios: `Atividade revisada e enviada via IA pelo Prof. ${user!.name}`,
+                        dataEnvio: getCurrentDate(),
+                        horaEnvio: getCurrentTime(),
+                        professorId: user!.id,
+                        professorNome: user!.name,
+                        alunoId,
+                        alunoNome: aluno?.nome || '',
+                        turmaId,
+                        turmaNome: turma?.nome || '',
+                        disciplina: formData.disciplina,
+                      });
+
+                      const destinoEmail = globalConfig?.emailDestinoNotificacoes || 'cartoonlandiapr@gmail.com';
+                      await emailService.sendNotification(envioData as Envio, attachments);
+
+                      setAiSuccessMsg('Atividade revisada e enviada com sucesso!');
+                      setTimeout(() => {
+                        setAiModalOpen(false);
+                        setSuccess(true);
+                        setTimeout(() => router.push(`/professor/turmas/${turmaId}`), 1500);
+                      }, 1200);
+                    } catch (err: any) {
+                      console.error('Erro no envio final:', err);
+                      setAiErrorMsg(err.message || 'Falha ao enviar atividade revisada.');
+                    } finally {
+                      setAiGenerating(false);
+                    }
+                  }}
+                  loading={aiGenerating}
+                >
+                  Confirmar e Enviar Atividade
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </Modal>
     </DashboardLayout>
   );
 }
