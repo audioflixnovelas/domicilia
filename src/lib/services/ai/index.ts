@@ -6,45 +6,6 @@ export interface AIProvider {
   generateActivity(prompt: string, config: ConfiguracaoGlobal): Promise<string>;
 }
 
-export function cleanLatexMath(text: string): string {
-  if (!text) return text;
-  return text
-    // Remove marcadores crus de figura [Figura: ...] do corpo de texto
-    .replace(/\[Figura:[^\]]*\]/gi, '')
-    // Remove delimitadores de bloco/inline LaTeX
-    .replace(/\\\[\s*/g, '')
-    .replace(/\s*\\\]/g, '')
-    .replace(/\\\(\s*/g, '')
-    .replace(/\s*\\\)/g, '')
-    // Substitui frações \frac{num}{den} por num / den
-    .replace(/\\frac\s*\{([^}]+)\}\s*\{([^}]+)\}/g, '($1 / $2)')
-    // Substitui funções trigonométricas e comandos comuns
-    .replace(/\\text\s*\{([^}]+)\}/g, '$1')
-    .replace(/\\sen\b|\\sin\b/g, 'sen')
-    .replace(/\\cos\b/g, 'cos')
-    .replace(/\\tan\b|\\tg\b/g, 'tan')
-    .replace(/\\theta\b/g, 'θ')
-    .replace(/\\alpha\b/g, 'α')
-    .replace(/\\beta\b/g, 'β')
-    .replace(/\\gamma\b/g, 'γ')
-    .replace(/\\pi\b/g, 'π')
-    .replace(/\\sqrt\s*\{([^}]+)\}/g, '√($1)')
-    .replace(/\\sqrt\b/g, '√')
-    .replace(/\\times\b/g, '×')
-    .replace(/\\cdot\b/g, '·')
-    .replace(/\\pm\b/g, '±')
-    .replace(/\\neq\b/g, '≠')
-    .replace(/\\leq\b/g, '≤')
-    .replace(/\\geq\b/g, '≥')
-    .replace(/\\approx\b/g, '≈')
-    // Substitui exponenciais comuns como ^2 por ²
-    .replace(/\^2\b/g, '²')
-    .replace(/\^3\b/g, '³')
-    .replace(/\^([0-9a-zA-Z]+)/g, '^$1')
-    // Limpa barras invertidas sobrando em símbolos
-    .replace(/\\/g, '');
-}
-
 interface QueueItem {
   id: string;
   prompt: string;
@@ -72,44 +33,25 @@ class LLM7Provider implements AIProvider {
         messages: [
           {
             role: 'system',
-            content: `Você é um renomado autor de livros didáticos para vestibulares e olimpíadas escolares, especialista em elaborar atividades de ALTO NÍVEL CONCEITUAL, PROFUNDAS e EXTREMAMENTE ENRIQUECEDORAS.
+            content: `Voce e um professor experiente e criativo. Gere atividades domiciliares completas, didaticas e adequadas ao nivel escolar.
 
-DIRETRIZES DE QUALIDADE, APROFUNDAMENTO E COMPLEXIDADE PEDAGÓGICA:
-1. QUESTÕES COMPLEXAS, RICAS E MULTI-ETAPAS (MUITO IMPORTANTE):
-   - PROIBIDO criar questões rasas de linha única (como "qual é o valor do outro cateto?").
-   - Cada questão DEVE ser um estudo de caso envolvente (3 a 6 linhas de contexto real) desmembrado em sub-itens (a, b, c) para análise completa e aprofundada!
-   - Contextualizações obrigatórias com cálculos reais:
-     * Engenharia Civil & Arquitetura: Projetos de pontes estaiadas (cálculo dos cabos de sustentação, altura do pilar h, projeções na pista m e n, custo do cabo por metro).
-     * Rampa NBR 9050 & Acessibilidade: Verificação técnica da inclinação regulamentar, cateto vertical, extenso horizontal e comprimento total da rampa.
-     * Aviação & Balística: Trajetória de decolagem de aeronaves com gradiente de subida, componentes vetoriais de velocidade e alcance radar.
-     * Física & Tecnologia: Telas HD (relação de aspecto 16:9, Teorema de Pitágoras para diagonal em polegadas), circuitos elétricos e vetores em física.
-   - Estrutura de sub-itens esperada por questão:
-     a) Desenvolver a interpretação geométrica e calcular a hipotenusa/dimensão principal.
-     b) Determinar a altura relativa h e/ou as projeções ortogonais m e n.
-     c) Apresentar uma conclusão técnica, financeira ou de viabilidade do projeto.
+FORMATO DA ATIVIDADE:
+- Titulo claro e objetivo
+- 5 a 10 exercicios progressivos (do facil ao dificil)
+- Exercicios variados (multipla escolha, dissertativo, pratico)
+- Espaco para resposta (linhas com ___)
+- NAO inclua gabarito ou respostas
+- NAO inclua cabecalho (nome, data, turma) - o sistema ja adiciona
 
-2. RESUMO TEÓRICO DENSE E CONCEITUALMENTE PERFEITO:
-   - A seção "## Resumo Teórico do Conteúdo" deve ser um verdadeiro capítulo de livro didático de alta performance.
-   - Explique detalhadamente cada uma das 5 relações métricas e das razões trigonométricas.
-   - Apresente 2 EXEMPLOS RESOLVIDOS PASSO A PASSO completos, mostrando todos os cálculos e substituições numéricas detalhadamente.
-
-3. FORMATAÇÃO LIMPA SEM LATEX E SEM ASCII ART:
-   - PROIBIDO código/tags LaTeX (\\[, \\], \\(, \\), \\frac, \\sin, \\cos, \\tan, \\theta, \\sqrt, ^2). Escreva fórmulas em português legível:
-     * a² = b² + c²
-     * h² = m . n
-     * b² = a . m e c² = a . n
-     * a . h = b . c
-     * h = √(23,04) = 4,8 m
-   - PROIBIDO ASCII art.
-
-4. ESPAÇO PARA RESPOSTA:
-   - Insira uma única linha de resposta (___) para cada sub-item das questões.
-   - NÃO inclua gabarito no final.`,
+FORMATACAO:
+- Use ## para titulos de secao
+- Use **texto** para negrito
+- Cada exercicio em uma linha separada`,
           },
           { role: 'user', content: prompt },
         ],
-        temperature: 0.6,
-        max_tokens: 3500,
+        temperature: 0.7,
+        max_tokens: 2000,
       }),
     });
 
@@ -122,8 +64,7 @@ DIRETRIZES DE QUALIDADE, APROFUNDAMENTO E COMPLEXIDADE PEDAGÓGICA:
     }
 
     const data = await response.json();
-    let content = data.choices[0]?.message?.content || 'Nao foi possivel gerar a atividade.';
-    return cleanLatexMath(content);
+    return data.choices[0]?.message?.content || 'Nao foi possivel gerar a atividade.';
   }
 }
 
@@ -212,60 +153,29 @@ export async function generateActivityForStudent(
   turmaNome: string,
   disciplina: string,
   config: ConfiguracaoGlobal,
-  serie?: string,
-  userConteudo?: string,
-  laudoAluno?: string,
-  objetivos?: string,
-  imagens?: string[]
+  serie?: string
 ): Promise<{ texto: string; pdf: Buffer; docx: Buffer }> {
-  const conteudoDB = await buscarConteudoIA(disciplina, serie || '');
+  const conteudo = await buscarConteudoIA(disciplina, serie || '');
 
-  let prompt = `Elabore uma atividade domiciliar RIGOROSAMENTE sobre a matéria "${disciplina}" para o(a) aluno(a) ${alunoNome} (${serie || 'Ensino Fundamental/Médio'}, Turma ${turmaNome}).
+  let prompt = `Gere uma atividade domiciliar para o aluno ${alunoNome} da turma ${turmaNome}.`;
 
-ATENÇÃO IMPERATIVA:
-- A disciplina É "${disciplina}". NÃO gere questões de outra matéria. Se a matéria for História, Geografia, Português, Biologia etc., JAMAIS gere continhas de matemática.
-- Adapte o vocabulário e a profundidade estritamente para a série/ano: ${serie || 'Nível Escolar'}.`;
+  if (conteudo) {
+    prompt += `\n\nCONTEUDO PROGRAMATICO:
+- Disciplina: ${conteudo.disciplina}
+- Serie: ${conteudo.serie}
+- Tema: ${conteudo.titulo}
+- Conteudo: ${conteudo.conteudo}
+- Objetivos: ${conteudo.objetivos}
+- Nivel: ${conteudo.nivel}
 
-  if (userConteudo) {
-    prompt += `\n\nTEMA / CONTEÚDO ESPECÍFICO EXIGIDO PELO PROFESSOR:
-${userConteudo}`;
-  } else if (conteudoDB) {
-    prompt += `\n\nCONTEÚDO PROGRAMÁTICO BASE:
-- Tema: ${conteudoDB.titulo}
-- Detalhes: ${conteudoDB.conteudo}
-- Exemplo: ${conteudoDB.exerciciosExemplo}`;
+EXEMPLO DE EXERCICIO:
+${conteudo.exerciciosExemplo}
+
+Use este conteudo como base para criar a atividade.`;
+  } else {
+    prompt += `\n\nDisciplina: ${disciplina}
+Gere uma atividade adequada para o nivel medio, com exercicios variados e progressivos.`;
   }
-
-  if (laudoAluno) {
-    prompt += `\n\nLAUDO DO ALUNO / ADAPTAÇÕES PEDAGÓGICAS (MUITO IMPORTANTE):
-${laudoAluno}
-Adapte as questões (ex: questões mais diretas, enunciados claros, opções objetivas) respeitando rigorosamente as necessidades deste laudo.`;
-  }
-
-  if (objetivos) {
-    prompt += `\n\nOBJETIVOS DE APRENDIZAGEM:
-${objetivos}`;
-  }
-
-  prompt += `\n\nEXIGÊNCIAS DE ESTRUTURA E CONTEÚDO PEDAGÓGICO:
-1. TÍTULO E EXPLICAÇÃO TEÓRICA EXTREMAMENTE DIDÁTICA E RICA:
-   - Apresente um título atrativo e uma seção "## Resumo Teórico do Conteúdo" rica e contextualizada.
-   - Apresente todas as definições, propriedades, fórmulas (limpas em português) e 2 exemplos resolvidos passo a passo com situações práticas do cotidiano.
-
-2. FÓRMULAS E NOTAÇÃO MATEMÁTICA LIMPA:
-   - JAMAIS use notação LaTeX (JAMAIS use \\(, \\), \\frac, \\sin, \\cos, \\tan, \\theta, \\times, ^2).
-   - Escreva fórmulas em texto simples e claro em português (a² + b² = c², h² = m . n, b² = a . m, c² = a . n, a . h = b . c, sen(x) = oposto/hipotenusa).
-
-3. QUESTÕES CRIATIVAS, DESAFIADORAS E DIVERSIFICADAS (8 A 10 QUESTÕES):
-   - PROIBIDO repetir a mesma estrutura burocrática de questão.
-   - Crie questões aplicadas em engenharia (rampas NBR 9050, pontes, telhados, escadas), navegação/aviação, telas de eletrônicos e desafios conceituais.
-   - Insira uma única linha de resposta (___) para cada questão.
-
-4. ILUSTRAÇÕES E DIAGRAMAS GEOMÉTRICOS:
-   - NUNCA crie desenhos em ASCII art. O sistema anexará automaticamente o diagrama vetorial ilustrando os elementos (catetos b e c, hipotenusa a, altura h, projeções m e n).
-
-5. TABELAS:
-   - Se houver dados comparativos, utilize a sintaxe de tabela Markdown (| Coluna 1 | Coluna 2 |).`;
 
   const provider = new LLM7Provider();
   const texto = await provider.generateActivity(prompt, config);
@@ -277,7 +187,6 @@ ${objetivos}`;
     turma: turmaNome,
     aluno: alunoNome,
     conteudo: texto,
-    imagens,
   };
 
   const [pdf, docx] = await Promise.all([

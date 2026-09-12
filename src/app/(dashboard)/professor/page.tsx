@@ -1,419 +1,316 @@
 'use client';
 
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { Card } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table';
+import Input from '@/components/ui/Input';
+import Select from '@/components/ui/Select';
 import { PageLoading } from '@/components/ui/Loading';
-import { FirestoreService, DOC_TYPES, whereEqual } from '@/lib/services/firestore';
-import { AuthService } from '@/lib/services/auth';
-import { Turma, Aluno, Envio, ConfiguracaoGlobal, User } from '@/types';
-import { formatDate, isPeriodoAtivoAluno } from '@/lib/utils';
-import { syncAnnualRemindersForTeacher } from '@/lib/services/calendar-reminders';
+import { FirestoreService, DOC_TYPES } from '@/lib/services/firestore';
+import { storageProvider, validateFile, generateStoragePath } from '@/lib/services/storage';
+import { emailService } from '@/lib/services/email';
+import { Aluno, Turma, Envio, Historico, User } from '@/types';
+import { getCurrentDate, getCurrentTime } from '@/lib/utils';
 
-function ProfessorDashboardContent() {
+function EnviarAtividadeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, refreshUser } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+
+  const turmaId = searchParams.get('turmaId') || '';
+  const alunoId = searchParams.get('alunoId') || '';
+
+  const [aluno, setAluno] = useState<Aluno | null>(null);
+  const [turma, setTurma] = useState<Turma | null>(null);
+  const [pedagogaNome, setPedagogaNome] = useState('');
+  const [formData, setFormData] = useState({
+    disciplina: '',
+    comentarios: '',
+    roteiro: '',
+    observacoes: '',
+    numAulas: '',
+    data: '',
+    quinzena: '1',
+    trimestre: '1',
+    anoLetivo: new Date().getFullYear().toString(),
+  });
+  const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
-  const [turmas, setTurmas] = useState<Turma[]>([]);
-  const [alunosMap, setAlunosMap] = useState<Record<string, Aluno[]>>({});
-  const [enviosPendentes, setEnviosPendentes] = useState<Envio[]>([]);
-  const [globalConfig, setGlobalConfig] = useState<ConfiguracaoGlobal | null>(null);
-  const [oauthLoading, setOauthLoading] = useState(false);
-  const [oauthNotice, setOauthNotice] = useState('');
-  const processedCodeRef = useRef<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+
+  const disciplinas = user?.disciplinas || ['Portugues', 'Matematica', 'Ciencias', 'Historia', 'Geografia', 'Ingles', 'Educacao Fisica', 'Artes', 'Musica', 'Informatica', 'Educacao Digital', 'Educação Digital'];
 
   useEffect(() => {
-    if (user) loadDashboardData();
-  }, [user]);
+    if (!authLoading && user && turmaId && alunoId) loadData();
+    else if (!authLoading) setLoading(false);
+  }, [user, authLoading, turmaId, alunoId]);
 
-  useEffect(() => {
-    // Processa callback OAuth se reencaminhado com 'code' e com usuário já carregado
-    const code = searchParams.get('code');
-    if (code && user && processedCodeRef.current !== code) {
-      processedCodeRef.current = code;
-      handleOAuthCallback(code);
-    }
-  }, [searchParams, user]);
-
-  const loadDashboardData = async () => {
+  const loadData = async () => {
     try {
-      // Carrega turmas do professor
-      const turmasData = await FirestoreService.getAllByType<Turma>(DOC_TYPES.TURMA);
-      const turmasProfessor = turmasData.filter(
-        (t) => t.active && (t.professorIds || []).includes(user!.id)
-      );
-
-      setTurmas(turmasProfessor);
-
-      // Carrega alunos domiciliares ativos (dentro do período do atestado) das turmas
-      const alunosData = await FirestoreService.getAllByType<Aluno>(DOC_TYPES.ALUNO);
-      const map: Record<string, Aluno[]> = {};
-
-      const alunosAtivosNoPeriodo = alunosData.filter(isPeriodoAtivoAluno);
-
-      for (const t of turmasProfessor) {
-        map[t.id] = alunosAtivosNoPeriodo.filter((a) => a.turmaId === t.id);
-      }
-      setAlunosMap(map);
-
-      // Carrega todos os envios deste professor
-      const enviosData = await FirestoreService.query<Envio>(DOC_TYPES.ENVIO, [
-        whereEqual('professorId', user!.id),
+      const [alunoData, turmaData] = await Promise.all([
+        FirestoreService.getById<Aluno>(alunoId),
+        FirestoreService.getById<Turma>(turmaId),
       ]);
+      setAluno(alunoData);
+      setTurma(turmaData);
 
-      const hojeStr = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(new Date());
-
-      // Calcula pendências dinamicamente com base na data do último envio
-      const pendentesCalculados: Envio[] = [];
-
-      for (const t of turmasProfessor) {
-        const alunosTurma = map[t.id] || [];
-        for (const aluno of alunosTurma) {
-          const enviosAluno = enviosData.filter((e) => e.alunoId === aluno.id && e.turmaId === t.id);
-          const enviosCompletados = enviosAluno.filter((e) => e.status === 'enviado' || e.status === 'gerado_ia');
-
-          // Busca último envio do aluno para este professor
-          const ultimoEnvio = enviosCompletados.sort((a, b) => (b.dataEnvio > a.dataEnvio ? 1 : -1))[0];
-
-          // Se nunca enviou ou se o último envio tem 14 ou mais dias (quinzenal)
-          let precisaEnviar = false;
-          if (!ultimoEnvio) {
-            precisaEnviar = true;
-          } else if (ultimoEnvio.dataEnvio) {
-            const dataUltimo = new Date(ultimoEnvio.dataEnvio);
-            const dataHoje = new Date(hojeStr);
-            const diffDias = Math.floor((dataHoje.getTime() - dataUltimo.getTime()) / (1000 * 3600 * 24));
-            if (diffDias >= 14) {
-              precisaEnviar = true;
-            }
-          }
-
-          if (precisaEnviar) {
-            const envioPendenteExistente = enviosAluno.find((e) => e.status === 'pendente' || e.status === 'atrasado');
-            if (envioPendenteExistente) {
-              pendentesCalculados.push(envioPendenteExistente);
-            } else {
-              // Cria objeto de visualização pendente dinâmico
-              pendentesCalculados.push({
-                id: `pending_${aluno.id}_${t.id}`,
-                atividadeId: '',
-                alunoId: aluno.id,
-                alunoNome: aluno.nome,
-                professorId: user!.id,
-                professorNome: user!.name,
-                turmaId: t.id,
-                turmaNome: t.nome,
-                disciplina: user!.disciplinas?.[0] || 'Atividade Domiciliar',
-                versao: 1,
-                status: 'pendente',
-                arquivo: null,
-                comentarios: '',
-                dataEnvio: hojeStr,
-                horaEnvio: '07:00',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              });
-            }
-          }
-        }
+      // Busca nome do pedagogo
+      if (turmaData?.pedagogoId) {
+        const pedagoga = await FirestoreService.getById<User>(turmaData.pedagogoId);
+        if (pedagoga) setPedagogaNome(pedagoga.name);
       }
-
-      setEnviosPendentes(pendentesCalculados);
-
-      // Carrega config global
-      const configs = await FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO);
-      if (configs.length > 0) setGlobalConfig(configs[0]);
-    } catch (error) {
-      console.error('Erro ao carregar dashboard professor:', error);
+    } catch (err) {
+      console.error('Erro ao carregar dados:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleOAuthCallback = async (code: string) => {
-    try {
-      setOauthLoading(true);
-      setOauthNotice('Conectando e salvando autorização do Google Agenda...');
-
-      const redirectUri = window.location.origin + '/professor';
-
-      const configs = await FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO);
-      const configToUse = configs.length > 0 ? configs[0] : globalConfig;
-
-      const backendUrl = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'https://domicilia-maluf.squareweb.app';
-      const res = await fetch(`${backendUrl}/auth/callback`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code,
-          clientId: configToUse?.googleOAuthClientId,
-          clientSecret: configToUse?.googleOAuthClientSecret,
-          redirectUri,
-        }),
-      });
-
-      const data = await res.json();
-      if (data.oauthTokensJson) {
-        const teacherDocId = user?.id || user?.uid || AuthService.getCurrentUser()?.uid;
-        if (teacherDocId) {
-          await FirestoreService.update(teacherDocId, {
-            googleOAuthTokensJson: data.oauthTokensJson,
-          });
-
-          const updatedTeacher: User = {
-            ...(user || {
-              id: teacherDocId,
-              uid: teacherDocId,
-              email: AuthService.getCurrentUser()?.email || '',
-              name: AuthService.getCurrentUser()?.displayName || 'Professor',
-              role: 'professor',
-              active: true,
-              createdAt: '',
-              updatedAt: '',
-              type: 'user',
-            }),
-            googleOAuthTokensJson: data.oauthTokensJson,
-          };
-
-          await refreshUser();
-
-          // Sincroniza automaticamente todos os lembretes anuais na agenda deste professor
-          if (configToUse) {
-            setOauthNotice('✅ Conta vinculada! Criando automaticamente todos os lembretes do ano na sua Google Agenda...');
-            const syncRes = await syncAnnualRemindersForTeacher(updatedTeacher, configToUse);
-            setOauthNotice(`✅ Vínculo concluído! ${syncRes.successCount} lembretes criados com sucesso na sua Google Agenda.`);
-          } else {
-            setOauthNotice('✅ Sua conta Google individual foi vinculada com sucesso ao DomicilIA!');
-          }
-        } else {
-          setOauthNotice('✅ Autorização obtida! Por favor, recarregue para salvar no seu perfil.');
-        }
-        setTimeout(() => setOauthNotice(''), 6000);
-        router.replace('/professor');
-      } else {
-        setOauthNotice(`❌ Erro no vínculo: ${data.error || 'Falha ao obter autorização do Google.'}`);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      const validation = validateFile(selectedFile);
+      if (!validation.valid) {
+        setError(validation.error || 'Arquivo invalido');
+        return;
       }
-    } catch (err) {
-      console.error('Erro no callback OAuth:', err);
-      setOauthNotice('❌ Erro de conexão ao vincular a conta do Google.');
-    } finally {
-      setOauthLoading(false);
+      setFile(selectedFile);
+      setError('');
     }
   };
 
-  const handleVincularGoogle = async () => {
-    setOauthLoading(true);
-    try {
-      const redirectUri = window.location.origin + '/professor';
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSending(true);
 
-      const backendUrl = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || 'https://domicilia-maluf.squareweb.app';
-      const res = await fetch(`${backendUrl}/auth/url`, {
+    try {
+      let fileUpload = null;
+
+      // Upload do arquivo apenas se selecionado
+      if (file) {
+        const storagePath = generateStoragePath(turmaId, alunoId, formData.disciplina);
+        fileUpload = await storageProvider.upload(file, storagePath);
+      }
+
+      const envioData = {
+        atividadeId: '',
+        alunoId,
+        professorId: user!.id,
+        professorNome: user!.name,
+        turmaId,
+        disciplina: formData.disciplina,
+        versao: 1,
+        status: 'enviado' as const,
+        arquivo: fileUpload,
+        comentarios: formData.comentarios,
+        dataEnvio: getCurrentDate(),
+        horaEnvio: getCurrentTime(),
+        pedagogoId: turma?.pedagogoId || '',
+        alunoNome: aluno?.nome || '',
+        turmaNome: turma?.nome || '',
+        professorEmail: user!.email,
+      };
+
+      // Se houver envio pendente para este aluno e turma, atualiza para 'enviado'
+      const todosEnvios = await FirestoreService.getAllByType<Envio>(DOC_TYPES.ENVIO);
+      const envioPendente = todosEnvios.find(
+        (e) => e.alunoId === alunoId && e.turmaId === turmaId && e.status === 'pendente'
+      );
+
+      let envioId: string;
+      if (envioPendente) {
+        envioId = envioPendente.id;
+        await FirestoreService.update(envioPendente.id, {
+          ...envioData,
+          status: 'enviado',
+        });
+      } else {
+        envioId = await FirestoreService.create<Envio>(DOC_TYPES.ENVIO, envioData);
+      }
+
+      await FirestoreService.create<Historico>(DOC_TYPES.HISTORICO, {
+        envioId,
+        versao: 1,
+        arquivo: fileUpload,
+        comentarios: formData.comentarios,
+        dataEnvio: getCurrentDate(),
+        horaEnvio: getCurrentTime(),
+        professorId: user!.id,
+        professorNome: user!.name,
+        alunoId,
+        alunoNome: aluno?.nome || '',
+        turmaId,
+        turmaNome: turma?.nome || '',
+        disciplina: formData.disciplina,
+      });
+
+      // Gera ficha DOCX usando template
+      const fichaResponse = await fetch('/api/ficha', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clientId: globalConfig?.googleOAuthClientId,
-          clientSecret: globalConfig?.googleOAuthClientSecret,
-          redirectUri,
+          professor: user!.name,
+          disciplina: formData.disciplina,
+          aluno: aluno?.nome || '',
+          turma: turma?.nome || '',
+          pedagoga: pedagogaNome,
+          data: formData.data || getCurrentDate(),
+          numAulas: formData.numAulas,
+          encaminhamento: file ? 'Atividade em anexo' : 'Atividade disponivel na plataforma',
+          roteiro: formData.roteiro || (file ? 'Resolver atividade anexada' : 'Acessar plataforma e realizar atividade'),
+          observacoes: formData.observacoes,
+          quinzena: formData.quinzena,
+          trimestre: formData.trimestre,
+          anoLetivo: formData.anoLetivo,
         }),
       });
 
-      const data = await res.json();
-      if (data.authUrl) {
-        window.location.href = data.authUrl;
-      } else {
-        alert(data.error || 'Configure o Client ID e Client Secret em Configurações do Sistema para realizar o vínculo.');
+      let attachments: { filename: string; content: Buffer }[] = [];
+
+      if (fichaResponse.ok) {
+        const fichaBuffer = Buffer.from(await fichaResponse.arrayBuffer());
+        attachments.push({
+          filename: `ficha_${aluno?.nome?.replace(/\s/g, '_')}_${formData.disciplina}.docx`,
+          content: fichaBuffer,
+        });
       }
-    } catch (err) {
-      console.error('Erro ao solicitar OAuth:', err);
-      alert('Falha ao conectar com o serviço do Google Agenda.');
+
+      if (file) {
+        const fileArrayBuffer = await file.arrayBuffer();
+        attachments.push({
+          filename: file.name,
+          content: Buffer.from(fileArrayBuffer),
+        });
+      }
+
+      // Envia emails
+      await emailService.sendConfirmation(envioData as Envio);
+      await emailService.sendNotification(envioData as Envio, attachments.length > 0 ? attachments : undefined);
+
+      setSuccess(true);
+      setTimeout(() => router.push(`/professor/turmas/${turmaId}`), 2000);
+    } catch (err: any) {
+      setError(err.message || 'Erro ao enviar atividade');
     } finally {
-      setOauthLoading(false);
+      setSending(false);
     }
   };
 
-  if (loading) return <PageLoading />;
-
-  const isLinked = Boolean(user?.googleOAuthTokensJson);
+  if (authLoading || loading) return <PageLoading />;
 
   return (
     <DashboardLayout>
-      <PageHeader
-        title={`Bem-vindo, Prof. ${user?.name}`}
-        description="Painel de acompanhamento e envio de atividades domiciliares"
-        actions={
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleVincularGoogle}
-              loading={oauthLoading}
-              className="flex items-center gap-2 border-blue-600 text-blue-700 hover:bg-blue-50"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-              </svg>
-              {isLinked ? '✓ Conta Google Vinculada' : 'Vincular Conta Google com DomicilIA'}
-            </Button>
+      <PageHeader title="Enviar Atividade" description={aluno ? `Enviar para ${aluno.nome}` : ''} actions={<Button variant="outline" onClick={() => router.back()}>Voltar</Button>} />
+      {success ? (
+        <Card className="max-w-2xl"><div className="text-center py-12"><div className="mx-auto h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mb-4"><span className="text-3xl text-green-600">✓</span></div><h3 className="text-lg font-medium text-gray-900">Atividade Enviada!</h3><p className="mt-2 text-sm text-gray-500">Ficha DOCX gerada e enviada por email</p></div></Card>
+      ) : (
+        <Card className="max-w-2xl">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {aluno && (
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium text-gray-900">Aluno: {aluno.nome}</h4>
+                <p className="text-sm text-gray-600">Turma: {turma?.nome}</p>
+              </div>
+            )}
 
-            <a
-              href="https://calendar.google.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors shadow-sm"
-            >
-              📅 Abrir Google Agenda
-            </a>
-          </div>
-        }
-      />
+            <Select label="Disciplina" value={formData.disciplina} onChange={(e) => setFormData({ ...formData, disciplina: e.target.value })} options={disciplinas.map((d) => ({ value: d, label: d }))} placeholder="Selecione" required />
 
-      {oauthNotice && (
-        <div className="mb-6 p-4 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-sm font-medium">
-          {oauthNotice}
-        </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Atividade (Opcional)</label>
+              <input type="file" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.gif,.webp" onChange={handleFileChange} className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none" />
+              <p className="mt-1 text-sm text-gray-500">Se nao selecionar arquivo, apenas a ficha sera enviada com instrucoes para acessar a plataforma</p>
+              {file && <p className="mt-2 text-sm text-green-600">{file.name}</p>}
+            </div>
+
+            <div className="border-t pt-4">
+              <h4 className="font-medium text-gray-900 mb-3">Ficha de Atividade (DOCX)</h4>
+              <p className="text-sm text-gray-500 mb-3">Preencha os campos da ficha que sera gerada em DOCX</p>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Input label="Nº de Aulas" value={formData.numAulas} onChange={(e) => setFormData({ ...formData, numAulas: e.target.value })} placeholder="Ex: 4" />
+                <Input label="Quinzena/Data" value={formData.data} onChange={(e) => setFormData({ ...formData, data: e.target.value })} placeholder="Ex: 05/02/2026 a 27/02/2026" />
+              </div>
+
+              <div className="grid grid-cols-3 gap-4 mt-4">
+                <Select
+                  label="Quinzena"
+                  value={formData.quinzena}
+                  onChange={(e) => setFormData({ ...formData, quinzena: e.target.value })}
+                  options={Array.from({ length: 15 }, (_, i) => ({
+                    value: String(i + 1),
+                    label: `Quinzena ${i + 1}`,
+                  }))}
+                  required
+                />
+                <Select
+                  label="Trimestre"
+                  value={formData.trimestre}
+                  onChange={(e) => setFormData({ ...formData, trimestre: e.target.value })}
+                  options={[
+                    { value: '1', label: '1º Trimestre' },
+                    { value: '2', label: '2º Trimestre' },
+                    { value: '3', label: '3º Trimestre' },
+                  ]}
+                  required
+                />
+                <Input
+                  label="Ano Letivo"
+                  value={formData.anoLetivo}
+                  onChange={(e) => setFormData({ ...formData, anoLetivo: e.target.value })}
+                  placeholder="Ex: 2026"
+                  required
+                />
+              </div>
+
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Roteiro de Estudos</label>
+                <textarea value={formData.roteiro} onChange={(e) => setFormData({ ...formData, roteiro: e.target.value })} rows={3} className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none" placeholder={file ? 'Roteiro de estudos do aluno...' : 'Ex: Acessar link da plataforma e seguir instrucoes'} />
+              </div>
+
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Observacoes da Ficha</label>
+                <textarea value={formData.observacoes} onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })} rows={2} className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none" placeholder="Observacoes adicionais..." />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Comentarios (opcional)</label>
+              <textarea value={formData.comentarios} onChange={(e) => setFormData({ ...formData, comentarios: e.target.value })} rows={3} className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none" placeholder="Observacoes..." />
+            </div>
+
+            {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
+
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h4 className="font-medium text-blue-900 mb-2">Anexos que serao enviados:</h4>
+              <ul className="text-sm text-blue-800 space-y-1">
+                <li>• Ficha.docx (preenchida com os dados acima)</li>
+                {file && <li>• Arquivo da atividade (seu upload)</li>}
+                {!file && <li>• Instrucoes para acessar a plataforma</li>}
+              </ul>
+            </div>
+
+            <div className="flex justify-end space-x-2">
+              <Button type="button" variant="outline" onClick={() => router.back()}>Cancelar</Button>
+              <Button type="submit" loading={sending} disabled={!formData.disciplina}>Enviar</Button>
+            </div>
+          </form>
+        </Card>
       )}
-
-      {/* Turmas do Professor */}
-      <div className="mb-8">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Sua(s) Turma(s) Atribuída(s)</h3>
-        {turmas.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center text-gray-500">
-              Você ainda não está vinculado a nenhuma turma ativa. Entre em contato com o pedagogo.
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {turmas.map((turma) => {
-              const alunosTurma = alunosMap[turma.id] || [];
-              return (
-                <Card key={turma.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader className="border-b border-gray-100 pb-3">
-                    <div className="flex justify-between items-center">
-                      <CardTitle>{turma.nome}</CardTitle>
-                      <Badge variant="info">{turma.serie} ({turma.ano})</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-4">
-                    <p className="text-sm font-medium text-gray-700 mb-2">
-                      Alunos Domiciliares em Atestado ({alunosTurma.length}):
-                    </p>
-                    {alunosTurma.length === 0 ? (
-                      <p className="text-xs text-gray-500 italic mb-4">Nenhum aluno em atividade domiciliar nesta turma.</p>
-                    ) : (
-                      <ul className="text-sm text-gray-600 space-y-1 mb-4">
-                        {alunosTurma.map((a) => (
-                          <li key={a.id} className="flex justify-between items-center">
-                            <span>• {a.nome}</span>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => router.push(`/professor/enviar?turmaId=${turma.id}&alunoId=${a.id}`)}
-                            >
-                              Enviar
-                            </Button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <Button
-                      variant="primary"
-                      className="w-full mt-2"
-                      onClick={() => router.push(`/professor/turmas/${turma.id}`)}
-                    >
-                      Ver Detalhes da Turma
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Atividades Pendentes */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Atividades Pendentes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <tr>
-                <TableHead>Aluno</TableHead>
-                <TableHead>Turma</TableHead>
-                <TableHead>Disciplina</TableHead>
-                <TableHead>Data do Registro / Início</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Ação</TableHead>
-              </tr>
-            </TableHeader>
-            <TableBody>
-              {enviosPendentes.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center text-gray-500 py-6">
-                    Nenhuma atividade pendente de envio! Tudo em dia. ✨
-                  </TableCell>
-                </TableRow>
-              ) : (
-                enviosPendentes.map((envio) => (
-                  <TableRow key={envio.id}>
-                    <TableCell className="font-medium text-gray-900">{envio.alunoNome || '-'}</TableCell>
-                    <TableCell>{envio.turmaNome || '-'}</TableCell>
-                    <TableCell>{envio.disciplina}</TableCell>
-                    <TableCell>{formatDate(envio.dataEnvio)}</TableCell>
-                    <TableCell>
-                      <Badge variant="warning">
-                        Pendente
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() =>
-                            router.push(`/professor/enviar?turmaId=${envio.turmaId}&alunoId=${envio.alunoId}`)
-                          }
-                        >
-                          Enviar Agora
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-purple-600 text-purple-700 hover:bg-purple-50"
-                          onClick={() =>
-                            router.push(`/professor/enviar?turmaId=${envio.turmaId}&alunoId=${envio.alunoId}&ai=true`)
-                          }
-                        >
-                          🤖 IA
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
     </DashboardLayout>
   );
 }
 
-export default function ProfessorDashboardPage() {
+export default function EnviarAtividadePage() {
   return (
     <Suspense fallback={<PageLoading />}>
-      <ProfessorDashboardContent />
+      <EnviarAtividadeContent />
     </Suspense>
   );
 }

@@ -12,19 +12,14 @@ import Select from '@/components/ui/Select';
 import { FirestoreService, DOC_TYPES, whereEqual } from '@/lib/services/firestore';
 import { AuthService } from '@/lib/services/auth';
 import { emailService } from '@/lib/services/email';
-import { Turma, Aluno, User, ConfiguracaoGlobal } from '@/types';
+import { Turma, Aluno, User } from '@/types';
 import { generateId } from '@/lib/utils';
-
-const defaultDisciplinas = [
-  'Português', 'Matemática', 'Ciências', 'História', 'Geografia',
-  'Inglês', 'Educação Física', 'Artes', 'Música', 'Informática', 'Educação Digital'
-];
 
 export default function NovoProfessorPage() {
   const router = useRouter();
   const { user } = useAuth();
   const [turmas, setTurmas] = useState<Turma[]>([]);
-  const [disciplinasOptions, setDisciplinasOptions] = useState<string[]>(defaultDisciplinas);
+  const [alunos, setAlunos] = useState<Aluno[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -35,27 +30,24 @@ export default function NovoProfessorPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const disciplinasOptions = [
+    'Português', 'Matemática', 'Ciências', 'História', 'Geografia',
+    'Inglês', 'Educação Física', 'Artes', 'Música', 'Informática', 'Educação Digital', 'Educacao Digital'
+  ];
+
   useEffect(() => {
-    if (user) loadInitialData();
+    if (user) loadTurmas();
   }, [user]);
 
-  const loadInitialData = async () => {
+  const loadTurmas = async () => {
     try {
-      const [turmasData, configs] = await Promise.all([
-        FirestoreService.query<Turma>(DOC_TYPES.TURMA, [
-          whereEqual('pedagogoId', user!.id),
-          whereEqual('active', true),
-        ]),
-        FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO),
+      const data = await FirestoreService.query<Turma>(DOC_TYPES.TURMA, [
+        whereEqual('pedagogoId', user!.id),
+        whereEqual('active', true),
       ]);
-
-      setTurmas(turmasData);
-
-      if (configs.length > 0 && configs[0].disciplinas && configs[0].disciplinas.length > 0) {
-        setDisciplinasOptions(configs[0].disciplinas);
-      }
+      setTurmas(data);
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
+      console.error('Erro ao carregar turmas:', error);
     }
   };
 
@@ -88,75 +80,44 @@ export default function NovoProfessorPage() {
           user!.id,
         ])).filter(Boolean) as string[];
 
-        const pedagogoDisciplinasUpdated = {
-          ...(existingUser.pedagogoDisciplinas || {}),
-          [user!.id]: formData.disciplinas,
-        };
-
         await FirestoreService.update(userId, {
           turmaIds: novasTurmas,
           disciplinas: novasDisciplinas,
-          pedagogoDisciplinas: pedagogoDisciplinasUpdated,
           pedagogoIds: novosPedagogos,
           active: true, // Garante que o professor esteja ativo
         });
       } else {
         const tempPassword = formData.password || generateId();
 
-        try {
-          userId = await AuthService.register(
-            formData.email,
-            tempPassword,
-            formData.name,
-            'professor'
-          );
+        userId = await AuthService.register(
+          formData.email,
+          tempPassword,
+          formData.name,
+          'professor'
+        );
 
-          await FirestoreService.update(userId, {
-            pedagogoId: user!.id,
-            pedagogoIds: [user!.id],
-            turmaIds: formData.turmaIds,
-            disciplinas: formData.disciplinas,
-            pedagogoDisciplinas: { [user!.id]: formData.disciplinas },
-          });
+        await FirestoreService.update(userId, {
+          pedagogoId: user!.id,
+          pedagogoIds: [user!.id],
+          turmaIds: formData.turmaIds,
+          disciplinas: formData.disciplinas,
+        });
 
-          // Envia email de boas-vindas apenas para novos
-          await emailService.sendWelcome(
-            {
-              id: userId,
-              uid: userId,
-              type: 'user',
-              email: formData.email,
-              name: formData.name,
-              role: 'professor',
-              active: true,
-              createdAt: '',
-              updatedAt: '',
-            },
-            tempPassword
-          );
-        } catch (authErr: any) {
-          // Se o e-mail já existe no Firebase Auth (auth/email-already-in-use)
-          if (authErr.code === 'auth/email-already-in-use' || authErr.message?.includes('already-in-use')) {
-            // Cria/atualiza apenas o perfil na coleção de usuários do Firestore sem re-criar a conta Auth
-            const docId = generateId();
-            userId = docId;
-
-            await FirestoreService.createAtId<User>(docId, DOC_TYPES.USER, {
-              uid: docId,
-              email: formData.email,
-              name: formData.name,
-              role: 'professor',
-              active: true,
-              pedagogoId: user!.id,
-              pedagogoIds: [user!.id],
-              turmaIds: formData.turmaIds,
-              disciplinas: formData.disciplinas,
-              pedagogoDisciplinas: { [user!.id]: formData.disciplinas },
-            });
-          } else {
-            throw authErr;
-          }
-        }
+        // Envia email de boas-vindas apenas para novos
+        await emailService.sendWelcome(
+          {
+            id: userId,
+            uid: userId,
+            type: 'user',
+            email: formData.email,
+            name: formData.name,
+            role: 'professor',
+            active: true,
+            createdAt: '',
+            updatedAt: '',
+          },
+          tempPassword
+        );
       }
 
       // Associa o professor às turmas selecionadas

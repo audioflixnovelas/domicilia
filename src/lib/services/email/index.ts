@@ -81,17 +81,18 @@ class ResendEmailService implements EmailService {
 
   async sendWelcome(user: User, password: string): Promise<boolean> {
     const html = `
-      <p>Ol&aacute; ${user.name},</p>
-      <br>
-      <p>Voc&ecirc; foi cadastrado no sistema de atividades domiciliares do Col&eacute;gio Maluf. Aqui est&atilde;o seus dados de acesso:</p>
-      <br>
-      <p><strong>E-mail:</strong> ${user.email}</p>
-      <p><strong>Senha:</strong> ${password}</p>
-      <p>Acesse o sistema: <a href="https://domicilia.systematrix.com.br">https://domicilia.systematrix.com.br</a></p>
-      <br>
-      <p>Atenciosamente,<br>DomicilIA - Col&eacute;gio Maluf</p>
+      <h2>Bem-vindo ao Sistema de Atividades Domiciliares!</h2>
+      <p>OLA <strong>${user.name}</strong>,</p>
+      <p>Voce foi cadastrado no sistema. Aqui estao seus dados de acesso:</p>
+      <ul>
+        <li><strong>E-mail:</strong> ${user.email}</li>
+        <li><strong>Senha temporaria:</strong> ${password}</li>
+      </ul>
+      <p>Acesse o sistema: <a href="${process.env.NEXT_PUBLIC_APP_URL}">${process.env.NEXT_PUBLIC_APP_URL}</a></p>
+      <p>Recomendamos que voce altere sua senha apos o primeiro acesso.</p>
+      <p>Atenciosamente,<br>Equipe de Tecnologia</p>
     `;
-    return this.send(user.email, 'Bem-vindo ao Sistema de Atividades Domiciliares!', html);
+    return this.send(user.email, 'Bem-vindo ao Sistema de Atividades Domiciliares', html);
   }
 
   async sendConfirmation(envio: Envio): Promise<boolean> {
@@ -124,9 +125,9 @@ class ResendEmailService implements EmailService {
       <p>${config?.assinaturaEmail ? config.assinaturaEmail.replace(/\n/g, '<br>') : 'Atenciosamente,<br>Sistema de Atividades Domiciliares'}</p>
     `;
 
-    let destination = config?.emailDestinoNotificacoes || 'cartoonlandiapr@gmail.com';
-    if (!destination) {
-      destination = 'cartoonlandiapr@gmail.com';
+    let destination = config?.emailDestinoNotificacoes || 'domiciliarmaluf@gmail.com';
+    if (destination === 'cartoonlandiapr@gmail.com' || destination === 'provasmaluf@gmail.com' || !destination) {
+      destination = 'domiciliarmaluf@gmail.com';
     }
 
     return this.send(
@@ -197,7 +198,7 @@ class ResendEmailService implements EmailService {
       <br>
       <p>&Uacute;ltimo dia de prazo para envio: quarta-feira (daqui 6 dias).</p>
       <br>
-      <p>Acesse o sistema e envie sua atividade: <a href="https://domicilia.systematrix.com.br/login">https://domicilia.systematrix.com.br/login</a></p>
+      <p>Acesse o sistema e envie sua atividade.</p>
       <br>
       <p>Atenciosamente,<br>Sistema de Atividades Domiciliares - Col&eacute;gio Maluf.</p>
     `;
@@ -210,9 +211,7 @@ class ResendEmailService implements EmailService {
       <br>
       <p>Hoje &eacute; o &uacute;ltimo prazo para envio das atividades domiciliares!</p>
       <br>
-      <p>Acesse o sistema e envie sua atividade: <a href="https://domicilia.systematrix.com.br/login">https://domicilia.systematrix.com.br/login</a></p>
-      <br>
-      <p>Em caso de j&aacute; ter enviado, desconsidere esse lembrete.</p>
+      <p>Acesse o sistema e envie sua atividade.</p>
       <br>
       <p>Atenciosamente,<br>Sistema de Atividades Domiciliares - Col&eacute;gio Maluf.</p>
     `;
