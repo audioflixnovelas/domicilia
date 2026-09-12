@@ -71,7 +71,7 @@ function ConfiguracoesAdminContent() {
           textoEmailLembrete: 'Lembrete: Voce possui atividade domiciliar pendente.',
           textoEmailConfirmacao: 'Sua atividade foi enviada com sucesso.',
           assinaturaEmail: 'Atenciosamente,\nSistema de Atividades Domiciliares',
-          emailDestinoNotificacoes: 'cartoonlandiapr@gmail.com',
+          emailDestinoNotificacoes: 'domiciliarmaluf@gmail.com',
           googleCalendarId: 'primary',
           googleCredentialsJson: '',
           googleOAuthClientId: '',
