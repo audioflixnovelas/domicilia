@@ -6,44 +6,8 @@ export interface AIProvider {
   generateActivity(prompt: string, config: ConfiguracaoGlobal): Promise<string>;
 }
 
-export function cleanLatexMath(text: string): string {
-  if (!text) return text;
-  return text
-    // Remove marcadores crus de figura [Figura: ...] do corpo de texto
-    .replace(/\[Figura:[^\]]*\]/gi, '')
-    // Remove delimitadores de bloco/inline LaTeX
-    .replace(/\\\[\s*/g, '')
-    .replace(/\s*\\\]/g, '')
-    .replace(/\\\(\s*/g, '')
-    .replace(/\s*\\\)/g, '')
-    // Substitui frações \frac{num}{den} por num / den
-    .replace(/\\frac\s*\{([^}]+)\}\s*\{([^}]+)\}/g, '($1 / $2)')
-    // Substitui funções trigonométricas e comandos comuns
-    .replace(/\\text\s*\{([^}]+)\}/g, '$1')
-    .replace(/\\sen\b|\\sin\b/g, 'sen')
-    .replace(/\\cos\b/g, 'cos')
-    .replace(/\\tan\b|\\tg\b/g, 'tan')
-    .replace(/\\theta\b/g, 'θ')
-    .replace(/\\alpha\b/g, 'α')
-    .replace(/\\beta\b/g, 'β')
-    .replace(/\\gamma\b/g, 'γ')
-    .replace(/\\pi\b/g, 'π')
-    .replace(/\\sqrt\s*\{([^}]+)\}/g, '√($1)')
-    .replace(/\\sqrt\b/g, '√')
-    .replace(/\\times\b/g, '×')
-    .replace(/\\cdot\b/g, '·')
-    .replace(/\\pm\b/g, '±')
-    .replace(/\\neq\b/g, '≠')
-    .replace(/\\leq\b/g, '≤')
-    .replace(/\\geq\b/g, '≥')
-    .replace(/\\approx\b/g, '≈')
-    // Substitui exponenciais comuns como ^2 por ²
-    .replace(/\^2\b/g, '²')
-    .replace(/\^3\b/g, '³')
-    .replace(/\^([0-9a-zA-Z]+)/g, '^$1')
-    // Limpa barras invertidas sobrando em símbolos
-    .replace(/\\/g, '');
-}
+import { cleanLatexMath } from './latex-cleaner';
+export { cleanLatexMath };
 
 interface QueueItem {
   id: string;
@@ -111,8 +75,9 @@ DIRETRIZES FUNDAMENTAIS PARA CRIAÇÃO DE ATIVIDADES DE EXCELÊNCIA:
    - ARTES, EDUCAÇÃO FÍSICA E DIGITAL:
      * Expressão artística, história da arte, cidadania digital, saúde e cultura corporal.
 
-3. FORMATAÇÃO E NOTAÇÃO LIMPA:
-   - PROIBIDO código/tags LaTeX (\\frac, \\sin, \\cos, \\sqrt, \\theta, \\times, ^2). Escreva fórmulas em português legível e acessível: (a² + b² = c², v = d / t, h = √(25)).
+3. FORMATAÇÃO E NOTAÇÃO MATEMÁTICA LIMPA:
+   - PROIBIDO código/tags LaTeX (como \\frac, frac{}{}, \\sin, \\cos, \\sqrt, \\theta, \\times, ^2).
+   - Escreva todas as fórmulas e frações em português claro e legível: (a² + b² = c², sen(θ) = cateto oposto / hipotenusa, v = d / t, h = √(25)).
    - PROIBIDO desenhos em ASCII art (o sistema insere ilustrações reais da web e diagramas).
    - NÃO inclua gabarito de respostas no final da atividade.`,
           },
@@ -326,7 +291,12 @@ No Resumo Teórico e em pelo menos 2 questões, faça referências explícitas �
    - Insira linha de resposta (___) para cada sub-item.
 
 5. SEÇÃO DE CURIOSIDADE:
-   - Seção "## 5. Você Sabia?", conectando o conteúdo com fatos curiosos ou tecnologia.`;
+   - Seção "## 5. Você Sabia?", conectando o conteúdo com fatos curiosos ou tecnologia.
+
+6. NOTAÇÃO MATEMÁTICA LIMPA:
+   - NUNCA use LaTeX ou comandos como frac{}{}, \\frac{}{}, \\sqrt{}, \\sin.
+   - Escreva frações em português claro (ex: "cateto oposto / hipotenusa", "1 / 2").
+   - Escreva potências e raízes diretamente (ex: a² + b² = c², √(25) = 5).`;
 
   const provider = new LLM7Provider();
   const texto = await provider.generateActivity(prompt, config);
