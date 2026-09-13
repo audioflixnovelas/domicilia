@@ -10,10 +10,11 @@ import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table';
 import { Badge } from '@/components/ui/Badge';
+import { Modal } from '@/components/ui/Modal';
 import { PageLoading } from '@/components/ui/Loading';
 import { FirestoreService, DOC_TYPES, whereEqual } from '@/lib/services/firestore';
 import { Envio, Turma, User } from '@/types';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatFileSize } from '@/lib/utils';
 
 export default function RelatoriosPedagogoPage() {
   const { user } = useAuth();
@@ -26,6 +27,9 @@ export default function RelatoriosPedagogoPage() {
   const [filtroProfessor, setFiltroProfessor] = useState('');
   const [filtroPeriodoInicio, setFiltroPeriodoInicio] = useState('');
   const [filtroPeriodoFim, setFiltroPeriodoFim] = useState('');
+
+  // Detalhe do envio (pré-visualização da atividade enviada)
+  const [envioSelecionado, setEnvioSelecionado] = useState<Envio | null>(null);
 
   useEffect(() => {
     if (user) loadData();
@@ -94,6 +98,8 @@ export default function RelatoriosPedagogoPage() {
     link.download = `relatorio_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
   };
+
+  const isImagem = (tipo?: string) => Boolean(tipo && tipo.startsWith('image/'));
 
   if (loading) return <PageLoading />;
 
@@ -183,12 +189,13 @@ export default function RelatoriosPedagogoPage() {
               <TableHead>Data</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Versão</TableHead>
+              <TableHead>Ações</TableHead>
             </tr>
           </TableHeader>
           <TableBody>
             {filteredEnvios.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-gray-500 py-8">
+                <TableCell colSpan={8} className="text-center text-gray-500 py-8">
                   Nenhum envio encontrado
                 </TableCell>
               </TableRow>
@@ -218,12 +225,94 @@ export default function RelatoriosPedagogoPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>v{envio.versao}</TableCell>
+                  <TableCell>
+                    <button
+                      type="button"
+                      onClick={() => setEnvioSelecionado(envio)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
+                    >
+                      Ver
+                    </button>
+                  </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
       </Card>
+
+      {/* Modal de detalhes do envio (acesso à atividade enviada) */}
+      <Modal
+        isOpen={!!envioSelecionado}
+        onClose={() => setEnvioSelecionado(null)}
+        title="Atividade Enviada"
+        size="lg"
+      >
+        {envioSelecionado && (
+          <div className="space-y-4">
+            <div className="rounded-lg bg-gray-50 p-3 text-sm text-gray-700">
+              <p><strong>Aluno:</strong> {envioSelecionado.alunoNome || '-'}</p>
+              <p><strong>Turma:</strong> {envioSelecionado.turmaNome || '-'}</p>
+              <p><strong>Professor:</strong> {envioSelecionado.professorNome || '-'}</p>
+              <p><strong>Disciplina:</strong> {envioSelecionado.disciplina}</p>
+              <p><strong>Enviado em:</strong> {formatDate(envioSelecionado.dataEnvio)} às {envioSelecionado.horaEnvio}</p>
+              <p><strong>Versão:</strong> v{envioSelecionado.versao}</p>
+            </div>
+
+            {envioSelecionado.comentarios && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-1">Comentários do professor</h4>
+                <p className="text-sm whitespace-pre-wrap text-gray-600 bg-gray-50 rounded-lg p-3">
+                  {envioSelecionado.comentarios}
+                </p>
+              </div>
+            )}
+
+            {envioSelecionado.arquivo ? (
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Arquivo da atividade</h4>
+                {isImagem(envioSelecionado.arquivo.tipo) ? (
+                  <div className="space-y-2">
+                    <img
+                      src={envioSelecionado.arquivo.url}
+                      alt={envioSelecionado.arquivo.nome}
+                      className="max-h-80 w-auto rounded-lg border border-gray-200"
+                    />
+                    <p className="text-xs text-gray-500">
+                      {envioSelecionado.arquivo.nome} ({formatFileSize(envioSelecionado.arquivo.tamanho)})
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{envioSelecionado.arquivo.nome}</p>
+                      <p className="text-xs text-gray-500">{formatFileSize(envioSelecionado.arquivo.tamanho)}</p>
+                    </div>
+                    <a
+                      href={envioSelecionado.arquivo.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+                    >
+                      Baixar / Abrir
+                    </a>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">
+                Esta atividade não possui arquivo anexado — apenas a ficha foi enviada.
+              </p>
+            )}
+
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={() => setEnvioSelecionado(null)}>
+                Fechar
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </DashboardLayout>
   );
 }
