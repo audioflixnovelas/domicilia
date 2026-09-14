@@ -261,7 +261,7 @@ export default function RelatoriosPedagogoPage() {
 
             {envioSelecionado.comentarios && (
               <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-1">Comentários do professor</h4>
+                <h4 className="text-sm font-medium text-gray-700 mb-1">Observações / Comentários</h4>
                 <p className="text-sm whitespace-pre-wrap text-gray-600 bg-gray-50 rounded-lg p-3">
                   {envioSelecionado.comentarios}
                 </p>
