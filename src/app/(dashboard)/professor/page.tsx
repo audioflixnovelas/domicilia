@@ -23,6 +23,7 @@ function ProfessorDashboardContent() {
   const [loading, setLoading] = useState(true);
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [alunosMap, setAlunosMap] = useState<Record<string, Aluno[]>>({});
+  const [alunosEnviadosSet, setAlunosEnviadosSet] = useState<Set<string>>(new Set());
   const [enviosPendentes, setEnviosPendentes] = useState<Envio[]>([]);
   const [globalConfig, setGlobalConfig] = useState<ConfiguracaoGlobal | null>(null);
   const [oauthLoading, setOauthLoading] = useState(false);
@@ -70,6 +71,9 @@ function ProfessorDashboardContent() {
 
       const hojeStr = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 
+      // Guarda quais alunos têm envio ativo para este professor na turma
+      const enviadosSet = new Set<string>();
+
       // Calcula pendências dinamicamente com base na data do último envio
       const pendentesCalculados: Envio[] = [];
 
@@ -81,6 +85,10 @@ function ProfessorDashboardContent() {
 
           // Busca último envio do aluno para este professor
           const ultimoEnvio = enviosCompletados.sort((a, b) => (b.dataEnvio > a.dataEnvio ? 1 : -1))[0];
+
+          if (ultimoEnvio) {
+            enviadosSet.add(`${t.id}_${aluno.id}`);
+          }
 
           // Se nunca enviou ou se o último envio tem 14 ou mais dias (quinzenal)
           let precisaEnviar = false;
@@ -125,6 +133,7 @@ function ProfessorDashboardContent() {
         }
       }
 
+      setAlunosEnviadosSet(enviadosSet);
       setEnviosPendentes(pendentesCalculados);
 
       // Carrega config global
@@ -312,18 +321,28 @@ function ProfessorDashboardContent() {
                       <p className="text-xs text-gray-500 italic mb-4">Nenhum aluno em atividade domiciliar nesta turma.</p>
                     ) : (
                       <ul className="text-sm text-gray-600 space-y-1 mb-4">
-                        {alunosTurma.map((a) => (
-                          <li key={a.id} className="flex justify-between items-center">
-                            <span>• {a.nome}</span>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => router.push(`/professor/enviar?turmaId=${turma.id}&alunoId=${a.id}`)}
-                            >
-                              Enviar
-                            </Button>
-                          </li>
-                        ))}
+                        {alunosTurma.map((a) => {
+                          const jaEnviou = alunosEnviadosSet.has(`${turma.id}_${a.id}`);
+                          return (
+                            <li key={a.id} className="flex justify-between items-center gap-2 py-1">
+                              <span className="flex items-center gap-1.5 min-w-0 font-medium">
+                                • <span className="truncate">{a.nome}</span>
+                                {jaEnviou && (
+                                  <span className="inline-flex items-center gap-0.5 rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800" title="Atividade já enviada">
+                                    ✓ Enviado
+                                  </span>
+                                )}
+                              </span>
+                              <Button
+                                size="sm"
+                                variant={jaEnviou ? "outline" : "primary"}
+                                onClick={() => router.push(`/professor/enviar?turmaId=${turma.id}&alunoId=${a.id}`)}
+                              >
+                                {jaEnviou ? 'Reenviar' : 'Enviar'}
+                              </Button>
+                            </li>
+                          );
+                        })}
                       </ul>
                     )}
                     <Button
