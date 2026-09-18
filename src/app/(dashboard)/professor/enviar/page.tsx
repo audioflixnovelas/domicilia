@@ -56,6 +56,10 @@ function EnviarAtividadeContent() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
+  // Preview Modal state before manual submission
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+
   // IA Modal state
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [aiForm, setAiForm] = useState({
@@ -310,12 +314,31 @@ function EnviarAtividadeContent() {
       await emailService.sendNotification(envioData as Envio, attachments.length > 0 ? attachments : undefined);
 
       setSuccess(true);
+      setPreviewModalOpen(false);
       setTimeout(() => router.push(`/professor/turmas/${turmaId}`), 2000);
     } catch (err: any) {
       setError(err.message || 'Erro ao enviar atividade');
     } finally {
       setSending(false);
     }
+  };
+
+  const handleOpenPreview = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.disciplina) {
+      setError('Selecione uma disciplina.');
+      return;
+    }
+    setError('');
+
+    if (file) {
+      if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+      setFilePreviewUrl(URL.createObjectURL(file));
+    } else {
+      setFilePreviewUrl(null);
+    }
+
+    setPreviewModalOpen(true);
   };
 
   if (authLoading || loading) return <PageLoading />;
@@ -327,7 +350,7 @@ function EnviarAtividadeContent() {
         <Card className="max-w-2xl"><div className="text-center py-12"><div className="mx-auto h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mb-4"><span className="text-3xl text-green-600">✓</span></div><h3 className="text-lg font-medium text-gray-900">Atividade Enviada!</h3><p className="mt-2 text-sm text-gray-500">Ficha DOCX gerada e enviada por email</p></div></Card>
       ) : (
         <Card className="max-w-2xl">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleOpenPreview} className="space-y-6">
             {aluno && (
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="font-medium text-gray-900">Aluno: {aluno.nome}</h4>
@@ -435,12 +458,96 @@ function EnviarAtividadeContent() {
 
               <div className="flex space-x-2">
                 <Button type="button" variant="outline" onClick={() => router.back()}>Cancelar</Button>
-                <Button type="submit" loading={sending} disabled={!formData.disciplina}>Enviar</Button>
+                <Button type="submit" disabled={!formData.disciplina}>Ver Prévia do Envio</Button>
               </div>
             </div>
           </form>
         </Card>
       )}
+
+      {/* Modal de Prévia antes do Envio pelo Professor */}
+      <Modal
+        isOpen={previewModalOpen}
+        onClose={() => setPreviewModalOpen(false)}
+        title="Prévia da Atividade a Ser Enviada"
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-900 space-y-1">
+            <p><strong>Aluno:</strong> {aluno?.nome || '-'}</p>
+            <p><strong>Turma:</strong> {turma?.nome || '-'}</p>
+            <p><strong>Professor(a):</strong> {user?.name || '-'}</p>
+            <p><strong>Disciplina:</strong> {formData.disciplina}</p>
+            <p><strong>Pedagogo(a) Resp.:</strong> {pedagogaNome || '-'}</p>
+          </div>
+
+          <div className="border-t pt-3">
+            <h4 className="font-semibold text-gray-900 text-sm mb-2">📋 Dados da Ficha de Atividade (DOCX):</h4>
+            <div className="bg-gray-50 p-3 rounded-lg text-sm space-y-1 text-gray-700">
+              <p><strong>Nº de Aulas:</strong> {formData.numAulas || '4'}</p>
+              <p><strong>Mês / Período:</strong> {formData.mes || '-'} ({formData.data || getCurrentDate()})</p>
+              <p><strong>Nº Ficha / Trimestre / Ano:</strong> Ficha {formData.quinzena} | {formData.trimestre}º Trimestre | {formData.anoLetivo}</p>
+              <p><strong>Encaminhamento:</strong> {file ? 'Atividade em anexo' : 'Atividade disponível na plataforma'}</p>
+              <p><strong>Roteiro de Estudos:</strong> {formData.roteiro || (file ? 'Resolver atividade anexada' : 'Acessar plataforma e realizar atividade')}</p>
+              {formData.observacoes && <p><strong>Observações da Ficha:</strong> {formData.observacoes}</p>}
+            </div>
+          </div>
+
+          {formData.comentarios && (
+            <div>
+              <h4 className="font-semibold text-gray-900 text-sm mb-1">💬 Comentários adicionais:</h4>
+              <p className="text-sm bg-gray-50 p-3 rounded-lg text-gray-700 whitespace-pre-wrap">{formData.comentarios}</p>
+            </div>
+          )}
+
+          <div>
+            <h4 className="font-semibold text-gray-900 text-sm mb-2">📎 Arquivos / Anexos:</h4>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50/50 p-3 text-sm">
+                <div>
+                  <p className="font-medium text-blue-900">ficha_{aluno?.nome?.replace(/\s/g, '_')}_{formData.disciplina}.docx</p>
+                  <p className="text-xs text-blue-700">Ficha oficial gerada automaticamente com os dados acima</p>
+                </div>
+                <span className="text-xs font-semibold px-2 py-1 bg-blue-200 text-blue-800 rounded">DOCX</span>
+              </div>
+
+              {file ? (
+                file.type.startsWith('image/') && filePreviewUrl ? (
+                  <div className="rounded-lg border border-gray-200 p-3 space-y-2 bg-gray-50">
+                    <p className="text-xs font-medium text-gray-700">Prévia da imagem anexada ({file.name}):</p>
+                    <img src={filePreviewUrl} alt={file.name} className="max-h-64 rounded border border-gray-300 mx-auto" />
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between rounded-lg border border-gray-200 p-3 text-sm bg-gray-50">
+                    <div>
+                      <p className="font-medium text-gray-900">{file.name}</p>
+                      <p className="text-xs text-gray-500">{(file.size / 1024).toFixed(1)} KB — Upload do professor</p>
+                    </div>
+                    {filePreviewUrl && (
+                      <a href={filePreviewUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-blue-600 hover:underline">
+                        Abrir Prévia
+                      </a>
+                    )}
+                  </div>
+                )
+              ) : (
+                <p className="text-xs text-gray-500 italic">Nenhum arquivo externo anexado. Instruções de acesso à plataforma serão incluídas na ficha.</p>
+              )}
+            </div>
+          </div>
+
+          {error && <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">{error}</p>}
+
+          <div className="flex justify-end space-x-2 pt-3 border-t">
+            <Button type="button" variant="outline" onClick={() => setPreviewModalOpen(false)}>
+              Voltar e Editar
+            </Button>
+            <Button type="button" loading={sending} onClick={handleSubmit}>
+              Confirmar e Enviar
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Modal de Geração por IA para o Professor */}
       <Modal
