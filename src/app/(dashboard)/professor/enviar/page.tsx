@@ -379,6 +379,11 @@ function EnviarAtividadeContent() {
               ignoreFonts: false,
               breakPages: true,
               experimental: false,
+              renderHeaders: true,
+              renderFooters: true,
+              renderFootnotes: true,
+              renderEndnotes: true,
+              useBase64URL: true,
             });
           }
           setDocxPreviewLoading(false);
@@ -521,7 +526,7 @@ function EnviarAtividadeContent() {
         isOpen={previewModalOpen}
         onClose={() => setPreviewModalOpen(false)}
         title="Prévia da Atividade a Ser Enviada"
-        size="lg"
+        size="2xl"
       >
         <div className="space-y-4">
           <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-900 space-y-1">
@@ -553,13 +558,32 @@ function EnviarAtividadeContent() {
 
           <div>
             <h4 className="font-semibold text-gray-900 text-sm mb-2">📄 Visualização Completa da Ficha DOCX Oficial:</h4>
-            <div className="rounded-lg border border-gray-300 bg-gray-100 p-2 overflow-auto max-h-[450px]">
+            <div className="rounded-lg border border-gray-300 bg-gray-100 p-2 overflow-auto max-h-[500px]">
               {docxPreviewLoading && (
                 <div className="p-8 text-center text-sm text-gray-600 animate-pulse">
                   Gerando e renderizando documento DOCX da ficha...
                 </div>
               )}
-              <div ref={docxContainerRef} className="bg-white shadow-sm min-h-[300px]" />
+              <style jsx global>{`
+                .docx-preview-container .docx-wrapper {
+                  background: transparent !important;
+                  padding: 8px !important;
+                  display: flex !important;
+                  justify-content: center !important;
+                  overflow-x: auto !important;
+                }
+                .docx-preview-container .docx {
+                  margin: 0 auto !important;
+                  box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24) !important;
+                  padding: 30pt !important;
+                  min-width: 720px !important;
+                  box-sizing: border-box !important;
+                }
+                .docx-preview-container .docx table {
+                  max-width: 100% !important;
+                }
+              `}</style>
+              <div ref={docxContainerRef} className="docx-preview-container bg-white shadow-sm min-h-[300px]" />
             </div>
           </div>
 

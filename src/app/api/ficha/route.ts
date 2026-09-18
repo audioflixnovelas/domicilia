@@ -33,9 +33,13 @@ export async function POST(request: NextRequest) {
     if (!xmlFile) throw new Error('Template invalido');
     let xml = await xmlFile.async('string');
 
-    // Remove paginas 2-5
+    // Remove paginas 2-5 preservando o w:sectPr (margens e referência ao cabeçalho/logo) no final do body
     const idx = xml.indexOf('Encaminhamento de conte', xml.indexOf('Encaminhamento de conte') + 1);
-    if (idx > 0) xml = xml.substring(0, xml.lastIndexOf('<w:p', idx)) + '</w:body></w:document>';
+    if (idx > 0) {
+      const sectPrMatch = xml.match(/<w:sectPr[^>]*>[\s\S]*?<\/w:sectPr>/);
+      const sectPrXml = sectPrMatch ? sectPrMatch[0] : '';
+      xml = xml.substring(0, xml.lastIndexOf('<w:p', idx)) + (sectPrXml || '') + '</w:body></w:document>';
+    }
 
     // Substitui fontes
     xml = xml.replace(/w:ascii="[^"]*"/g, 'w:ascii="Arial"');
