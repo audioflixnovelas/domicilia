@@ -59,6 +59,8 @@ function EnviarAtividadeContent() {
   // Preview Modal state before manual submission
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+  const [docxPreviewLoading, setDocxPreviewLoading] = useState(false);
+  const docxContainerRef = useRef<HTMLDivElement>(null);
 
   // IA Modal state
   const [aiModalOpen, setAiModalOpen] = useState(false);
@@ -323,7 +325,7 @@ function EnviarAtividadeContent() {
     }
   };
 
-  const handleOpenPreview = (e: React.FormEvent) => {
+  const handleOpenPreview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.disciplina) {
       setError('Selecione uma disciplina.');
@@ -339,6 +341,55 @@ function EnviarAtividadeContent() {
     }
 
     setPreviewModalOpen(true);
+    setDocxPreviewLoading(true);
+
+    try {
+      const fichaResponse = await fetch('/api/ficha', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          professor: user!.name,
+          disciplina: formData.disciplina,
+          aluno: aluno?.nome || '',
+          turma: turma?.nome || '',
+          pedagoga: pedagogaNome,
+          data: formData.data || getCurrentDate(),
+          mes: formData.mes || '',
+          numAulas: formData.numAulas || '4',
+          encaminhamento: file ? 'Atividade em anexo' : 'Atividade disponível na plataforma',
+          roteiro: formData.roteiro || (file ? 'Resolver atividade anexada' : 'Acessar plataforma e realizar atividade'),
+          observacoes: formData.observacoes,
+          quinzena: formData.quinzena || '1',
+          trimestre: formData.trimestre || '1',
+          anoLetivo: formData.anoLetivo || new Date().getFullYear().toString(),
+        }),
+      });
+
+      if (fichaResponse.ok) {
+        const arrayBuffer = await fichaResponse.arrayBuffer();
+        const docxPreview = await import('docx-preview');
+        setTimeout(() => {
+          if (docxContainerRef.current) {
+            docxContainerRef.current.innerHTML = '';
+            docxPreview.renderAsync(arrayBuffer, docxContainerRef.current, undefined, {
+              className: 'docx',
+              inWrapper: true,
+              ignoreWidth: false,
+              ignoreHeight: false,
+              ignoreFonts: false,
+              breakPages: true,
+              experimental: false,
+            });
+          }
+          setDocxPreviewLoading(false);
+        }, 100);
+      } else {
+        setDocxPreviewLoading(false);
+      }
+    } catch (err) {
+      console.error('Erro ao renderizar prévia da ficha DOCX:', err);
+      setDocxPreviewLoading(false);
+    }
   };
 
   if (authLoading || loading) return <PageLoading />;
@@ -501,7 +552,19 @@ function EnviarAtividadeContent() {
           )}
 
           <div>
-            <h4 className="font-semibold text-gray-900 text-sm mb-2">📎 Arquivos / Anexos:</h4>
+            <h4 className="font-semibold text-gray-900 text-sm mb-2">📄 Visualização Completa da Ficha DOCX Oficial:</h4>
+            <div className="rounded-lg border border-gray-300 bg-gray-100 p-2 overflow-auto max-h-[450px]">
+              {docxPreviewLoading && (
+                <div className="p-8 text-center text-sm text-gray-600 animate-pulse">
+                  Gerando e renderizando documento DOCX da ficha...
+                </div>
+              )}
+              <div ref={docxContainerRef} className="bg-white shadow-sm min-h-[300px]" />
+            </div>
+          </div>
+
+          <div>
+            <h4 className="font-semibold text-gray-900 text-sm mb-2">📎 Anexos Adicionais:</h4>
             <div className="space-y-2">
               <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50/50 p-3 text-sm">
                 <div>
