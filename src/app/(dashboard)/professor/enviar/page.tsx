@@ -50,7 +50,7 @@ function EnviarAtividadeContent() {
     trimestre: '1',
     anoLetivo: new Date().getFullYear().toString(),
   });
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
@@ -58,7 +58,7 @@ function EnviarAtividadeContent() {
 
   // Preview Modal state before manual submission
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
-  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+  const [filePreviewUrls, setFilePreviewUrls] = useState<{ file: File; url: string }[]>([]);
   const [docxPreviewLoading, setDocxPreviewLoading] = useState(false);
   const docxContainerRef = useRef<HTMLDivElement>(null);
 
@@ -193,16 +193,25 @@ function EnviarAtividadeContent() {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      const validation = validateFile(selectedFile);
-      if (!validation.valid) {
-        setError(validation.error || 'Arquivo invalido');
-        return;
+    const selectedFiles = e.target.files;
+    if (selectedFiles && selectedFiles.length > 0) {
+      const validFiles: File[] = [];
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const selectedFile = selectedFiles[i];
+        const validation = validateFile(selectedFile);
+        if (!validation.valid) {
+          setError(validation.error || `Arquivo ${selectedFile.name} é inválido`);
+          return;
+        }
+        validFiles.push(selectedFile);
       }
-      setFile(selectedFile);
+      setFiles((prev) => [...prev, ...validFiles]);
       setError('');
     }
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -211,12 +220,15 @@ function EnviarAtividadeContent() {
     setSending(true);
 
     try {
-      let fileUpload = null;
+      let fileUploads: any[] = [];
 
-      // Upload do arquivo apenas se selecionado
-      if (file) {
-        const storagePath = generateStoragePath(turmaId, alunoId, formData.disciplina);
-        fileUpload = await storageProvider.upload(file, storagePath);
+      // Upload dos arquivos se selecionados
+      if (files.length > 0) {
+        for (const file of files) {
+          const storagePath = generateStoragePath(turmaId, alunoId, `${formData.disciplina}_${file.name}`);
+          const uploaded = await storageProvider.upload(file, storagePath);
+          fileUploads.push(uploaded);
+        }
       }
 
       const envioData = {
@@ -228,7 +240,8 @@ function EnviarAtividadeContent() {
         disciplina: formData.disciplina,
         versao: 1,
         status: 'enviado' as const,
-        arquivo: fileUpload,
+        arquivo: fileUploads.length > 0 ? fileUploads[0] : null,
+        arquivos: fileUploads,
         comentarios: formData.comentarios,
         dataEnvio: getCurrentDate(),
         horaEnvio: getCurrentTime(),
@@ -284,8 +297,8 @@ function EnviarAtividadeContent() {
           data: formData.data || getCurrentDate(),
           mes: formData.mes || '',
           numAulas: formData.numAulas,
-          encaminhamento: file ? 'Atividade em anexo' : 'Atividade disponivel na plataforma',
-          roteiro: formData.roteiro || (file ? 'Resolver atividade anexada' : 'Acessar plataforma e realizar atividade'),
+          encaminhamento: files.length > 0 ? `${files.length} atividade(s) em anexo` : 'Atividade disponivel na plataforma',
+          roteiro: formData.roteiro || (files.length > 0 ? 'Resolver atividades anexadas' : 'Acessar plataforma e realizar atividade'),
           observacoes: formData.observacoes,
           quinzena: formData.quinzena,
           trimestre: formData.trimestre,
@@ -303,12 +316,14 @@ function EnviarAtividadeContent() {
         });
       }
 
-      if (file) {
-        const fileArrayBuffer = await file.arrayBuffer();
-        attachments.push({
-          filename: file.name,
-          content: Buffer.from(fileArrayBuffer),
-        });
+      if (files.length > 0) {
+        for (const file of files) {
+          const fileArrayBuffer = await file.arrayBuffer();
+          attachments.push({
+            filename: file.name,
+            content: Buffer.from(fileArrayBuffer),
+          });
+        }
       }
 
       // Envia emails
@@ -333,11 +348,14 @@ function EnviarAtividadeContent() {
     }
     setError('');
 
-    if (file) {
-      if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
-      setFilePreviewUrl(URL.createObjectURL(file));
+    // Revoga URLs anteriores para evitar memory leaks
+    filePreviewUrls.forEach((f) => URL.revokeObjectURL(f.url));
+
+    if (files.length > 0) {
+      const newUrls = files.map((f) => ({ file: f, url: URL.createObjectURL(f) }));
+      setFilePreviewUrls(newUrls);
     } else {
-      setFilePreviewUrl(null);
+      setFilePreviewUrls([]);
     }
 
     setPreviewModalOpen(true);
@@ -356,8 +374,8 @@ function EnviarAtividadeContent() {
           data: formData.data || getCurrentDate(),
           mes: formData.mes || '',
           numAulas: formData.numAulas || '4',
-          encaminhamento: file ? 'Atividade em anexo' : 'Atividade disponível na plataforma',
-          roteiro: formData.roteiro || (file ? 'Resolver atividade anexada' : 'Acessar plataforma e realizar atividade'),
+          encaminhamento: files.length > 0 ? `${files.length} atividade(s) em anexo` : 'Atividade disponível na plataforma',
+          roteiro: formData.roteiro || (files.length > 0 ? 'Resolver atividades anexadas' : 'Acessar plataforma e realizar atividade'),
           observacoes: formData.observacoes,
           quinzena: formData.quinzena || '1',
           trimestre: formData.trimestre || '1',
@@ -417,10 +435,34 @@ function EnviarAtividadeContent() {
             <Select label="Disciplina" value={formData.disciplina} onChange={(e) => setFormData({ ...formData, disciplina: e.target.value })} options={disciplinas.map((d) => ({ value: d, label: d }))} placeholder="Selecione" required />
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Atividade (Opcional)</label>
-              <input type="file" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.gif,.webp" onChange={handleFileChange} className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none" />
-              <p className="mt-1 text-sm text-gray-500">Se nao selecionar arquivo, apenas a ficha sera enviada com instrucoes para acessar a plataforma</p>
-              {file && <p className="mt-2 text-sm text-green-600">{file.name}</p>}
+              <label className="block text-sm font-medium text-gray-700 mb-2">Anexar Atividade(s) (Opcional - selecione 1 ou mais arquivos)</label>
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.gif,.webp"
+                onChange={handleFileChange}
+                className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none"
+              />
+              <p className="mt-1 text-sm text-gray-500">Você pode anexar múltiplos arquivos de uma só vez ou clicar para adicionar mais.</p>
+
+              {files.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs font-semibold text-gray-700">Arquivos Selecionados ({files.length}):</p>
+                  {files.map((f, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
+                      <span className="truncate">{f.name} ({(f.size / 1024).toFixed(1)} KB)</span>
+                      <button
+                        type="button"
+                        onClick={() => removeFile(idx)}
+                        className="text-red-600 hover:text-red-800 font-bold ml-2 text-xs"
+                        title="Remover arquivo"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="border-t pt-4">
@@ -465,7 +507,7 @@ function EnviarAtividadeContent() {
 
               <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Roteiro de Estudos</label>
-                <textarea value={formData.roteiro} onChange={(e) => setFormData({ ...formData, roteiro: e.target.value })} rows={3} className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none" placeholder={file ? 'Roteiro de estudos do aluno...' : 'Ex: Acessar link da plataforma e seguir instruções'} />
+                <textarea value={formData.roteiro} onChange={(e) => setFormData({ ...formData, roteiro: e.target.value })} rows={3} className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none" placeholder={files.length > 0 ? 'Roteiro de estudos do aluno...' : 'Ex: Acessar link da plataforma e seguir instruções'} />
               </div>
 
               <div className="mt-4">
@@ -485,8 +527,11 @@ function EnviarAtividadeContent() {
               <h4 className="font-medium text-blue-900 mb-2">Anexos que serão enviados:</h4>
               <ul className="text-sm text-blue-800 space-y-1">
                 <li>• Ficha.docx (preenchida com os dados acima)</li>
-                {file && <li>• Arquivo da atividade (seu upload)</li>}
-                {!file && <li>• Instruções para acessar a plataforma</li>}
+                {files.length > 0 ? (
+                  files.map((f, i) => <li key={i}>• {f.name} (Anexo {i + 1})</li>)
+                ) : (
+                  <li>• Instruções para acessar a plataforma</li>
+                )}
               </ul>
             </div>
 
@@ -543,8 +588,8 @@ function EnviarAtividadeContent() {
               <p><strong>Nº de Aulas:</strong> {formData.numAulas || '4'}</p>
               <p><strong>Mês / Período:</strong> {formData.mes || '-'} ({formData.data || getCurrentDate()})</p>
               <p><strong>Nº Ficha / Trimestre / Ano:</strong> Ficha {formData.quinzena} | {formData.trimestre}º Trimestre | {formData.anoLetivo}</p>
-              <p><strong>Encaminhamento:</strong> {file ? 'Atividade em anexo' : 'Atividade disponível na plataforma'}</p>
-              <p><strong>Roteiro de Estudos:</strong> {formData.roteiro || (file ? 'Resolver atividade anexada' : 'Acessar plataforma e realizar atividade')}</p>
+              <p><strong>Encaminhamento:</strong> {files.length > 0 ? `${files.length} atividade(s) em anexo` : 'Atividade disponível na plataforma'}</p>
+              <p><strong>Roteiro de Estudos:</strong> {formData.roteiro || (files.length > 0 ? 'Resolver atividades anexadas' : 'Acessar plataforma e realizar atividade')}</p>
               {formData.observacoes && <p><strong>Observações da Ficha:</strong> {formData.observacoes}</p>}
             </div>
           </div>
@@ -588,7 +633,7 @@ function EnviarAtividadeContent() {
           </div>
 
           <div>
-            <h4 className="font-semibold text-gray-900 text-sm mb-2">📎 Anexos Adicionais:</h4>
+            <h4 className="font-semibold text-gray-900 text-sm mb-2">📎 Anexos Adicionais ({filePreviewUrls.length + 1}):</h4>
             <div className="space-y-2">
               <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50/50 p-3 text-sm">
                 <div>
@@ -598,25 +643,25 @@ function EnviarAtividadeContent() {
                 <span className="text-xs font-semibold px-2 py-1 bg-blue-200 text-blue-800 rounded">DOCX</span>
               </div>
 
-              {file ? (
-                file.type.startsWith('image/') && filePreviewUrl ? (
-                  <div className="rounded-lg border border-gray-200 p-3 space-y-2 bg-gray-50">
-                    <p className="text-xs font-medium text-gray-700">Prévia da imagem anexada ({file.name}):</p>
-                    <img src={filePreviewUrl} alt={file.name} className="max-h-64 rounded border border-gray-300 mx-auto" />
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between rounded-lg border border-gray-200 p-3 text-sm bg-gray-50">
-                    <div>
-                      <p className="font-medium text-gray-900">{file.name}</p>
-                      <p className="text-xs text-gray-500">{(file.size / 1024).toFixed(1)} KB — Upload do professor</p>
+              {filePreviewUrls.length > 0 ? (
+                filePreviewUrls.map((item, idx) => (
+                  item.file.type.startsWith('image/') ? (
+                    <div key={idx} className="rounded-lg border border-gray-200 p-3 space-y-2 bg-gray-50">
+                      <p className="text-xs font-medium text-gray-700">Prévia do anexo {idx + 1} ({item.file.name}):</p>
+                      <img src={item.url} alt={item.file.name} className="max-h-64 rounded border border-gray-300 mx-auto" />
                     </div>
-                    {filePreviewUrl && (
-                      <a href={filePreviewUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-blue-600 hover:underline">
+                  ) : (
+                    <div key={idx} className="flex items-center justify-between rounded-lg border border-gray-200 p-3 text-sm bg-gray-50">
+                      <div>
+                        <p className="font-medium text-gray-900">{item.file.name}</p>
+                        <p className="text-xs text-gray-500">{(item.file.size / 1024).toFixed(1)} KB — Upload do professor</p>
+                      </div>
+                      <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-blue-600 hover:underline">
                         Abrir Prévia
                       </a>
-                    )}
-                  </div>
-                )
+                    </div>
+                  )
+                ))
               ) : (
                 <p className="text-xs text-gray-500 italic">Nenhum arquivo externo anexado. Instruções de acesso à plataforma serão incluídas na ficha.</p>
               )}
