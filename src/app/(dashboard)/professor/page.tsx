@@ -86,10 +86,6 @@ function ProfessorDashboardContent() {
           // Busca último envio do aluno para este professor
           const ultimoEnvio = enviosCompletados.sort((a, b) => (b.dataEnvio > a.dataEnvio ? 1 : -1))[0];
 
-          if (ultimoEnvio) {
-            enviadosSet.add(`${t.id}_${aluno.id}`);
-          }
-
           // Se nunca enviou ou se o último envio tem 14 ou mais dias (quinzenal)
           let precisaEnviar = false;
           if (!ultimoEnvio) {
@@ -101,6 +97,11 @@ function ProfessorDashboardContent() {
             if (diffDias >= 14) {
               precisaEnviar = true;
             }
+          }
+
+          // Apenas considera enviado para o ciclo atual se não precisa de um novo envio
+          if (ultimoEnvio && !precisaEnviar) {
+            enviadosSet.add(`${t.id}_${aluno.id}`);
           }
 
           if (precisaEnviar) {
@@ -327,9 +328,13 @@ function ProfessorDashboardContent() {
                             <li key={a.id} className="flex justify-between items-center gap-2 py-1">
                               <span className="flex items-center gap-1.5 min-w-0 font-medium">
                                 • <span className="truncate">{a.nome}</span>
-                                {jaEnviou && (
-                                  <span className="inline-flex items-center gap-0.5 rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800" title="Atividade já enviada">
+                                {jaEnviou ? (
+                                  <span className="inline-flex items-center gap-0.5 rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800" title="Atividade enviada no ciclo atual">
                                     ✓ Enviado
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800" title="Nova atividade pendente no ciclo">
+                                    Pendente
                                   </span>
                                 )}
                               </span>
