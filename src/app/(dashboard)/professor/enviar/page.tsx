@@ -271,7 +271,8 @@ function EnviarAtividadeContent() {
       await FirestoreService.create<Historico>(DOC_TYPES.HISTORICO, {
         envioId,
         versao: 1,
-        arquivo: fileUpload,
+        arquivo: fileUploads.length > 0 ? fileUploads[0] : null,
+        arquivos: fileUploads,
         comentarios: formData.comentarios,
         dataEnvio: getCurrentDate(),
         horaEnvio: getCurrentTime(),
@@ -937,10 +938,13 @@ function EnviarAtividadeContent() {
                       const configs = await FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO);
                       const globalConfig = configs.length > 0 ? configs[0] : null;
 
-                      let fileUpload = null;
-                      if (file) {
-                        const storagePath = generateStoragePath(turmaId, alunoId, formData.disciplina);
-                        fileUpload = await storageProvider.upload(file, storagePath);
+                      let fileUploads: any[] = [];
+                      if (files.length > 0) {
+                        for (const file of files) {
+                          const storagePath = generateStoragePath(turmaId, alunoId, `${formData.disciplina}_${file.name}`);
+                          const uploaded = await storageProvider.upload(file, storagePath);
+                          fileUploads.push(uploaded);
+                        }
                       }
 
                       // Gera a Ficha de Atividade (DOCX) oficial do Colégio Maluf
@@ -956,7 +960,7 @@ function EnviarAtividadeContent() {
                           data: formData.data || getCurrentDate(),
                           mes: formData.mes || '',
                           numAulas: formData.numAulas || '4',
-                          encaminhamento: fileUpload ? 'Atividade em anexo e gerada por IA' : 'Atividade Gerada por IA em anexo',
+                          encaminhamento: fileUploads.length > 0 ? 'Atividade em anexo e gerada por IA' : 'Atividade Gerada por IA em anexo',
                           roteiro: formData.roteiro || aiForm.conteudo || 'Realizar exercícios da atividade adaptada em anexo',
                           observacoes: formData.observacoes || (aiForm.laudoAluno ? `Atividade adaptada: ${aiForm.laudoAluno}` : 'Atividade desenvolvida com apoio de IA'),
                           quinzena: formData.quinzena || '1',
@@ -980,12 +984,14 @@ function EnviarAtividadeContent() {
                         { filename: `atividade_${aluno?.nome?.replace(/\s/g, '_')}_${formData.disciplina}.docx`, content: docx }
                       );
 
-                      if (file) {
-                        const fileArrayBuffer = await file.arrayBuffer();
-                        attachments.push({
-                          filename: file.name,
-                          content: Buffer.from(fileArrayBuffer),
-                        });
+                      if (files.length > 0) {
+                        for (const file of files) {
+                          const fileArrayBuffer = await file.arrayBuffer();
+                          attachments.push({
+                            filename: file.name,
+                            content: Buffer.from(fileArrayBuffer),
+                          });
+                        }
                       }
 
                       const envioData = {
@@ -997,7 +1003,8 @@ function EnviarAtividadeContent() {
                         disciplina: formData.disciplina,
                         versao: 1,
                         status: 'gerado_ia' as const,
-                        arquivo: fileUpload,
+                        arquivo: fileUploads.length > 0 ? fileUploads[0] : null,
+                        arquivos: fileUploads,
                         comentarios: `Gerado por IA pelo Prof. ${user!.name}. ${aiForm.laudoAluno ? '(Com adaptações de laudo)' : ''}`,
                         dataEnvio: getCurrentDate(),
                         horaEnvio: getCurrentTime(),

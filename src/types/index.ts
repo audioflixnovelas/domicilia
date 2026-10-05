@@ -101,6 +101,7 @@ export interface Envio {
   versao: number;
   status: 'enviado' | 'pendente' | 'atrasado' | 'gerado_ia';
   arquivo: FileUpload | null;
+  arquivos?: FileUpload[];
   comentarios: string;
   dataEnvio: string;
   horaEnvio: string;
@@ -126,6 +127,7 @@ export interface Historico {
   envioId: string;
   versao: number;
   arquivo: FileUpload | null;
+  arquivos?: FileUpload[];
   comentarios: string;
   dataEnvio: string;
   horaEnvio: string;
