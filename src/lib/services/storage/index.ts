@@ -86,6 +86,18 @@ export function getFileExtension(filename: string): string {
   return filename.split('.').pop()?.toLowerCase() || '';
 }
 
+function sanitizeSegment(str: string): string {
+  if (!str) return 'default';
+  const sanitized = str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9_-]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+  return sanitized || 'default';
+}
+
 export function generateStoragePath(
   turmaId: string,
   alunoId: string,
@@ -93,10 +105,8 @@ export function generateStoragePath(
 ) {
   return [
     "envios",
-    turmaId,
-    alunoId,
-    disciplina
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
+    sanitizeSegment(turmaId),
+    sanitizeSegment(alunoId),
+    sanitizeSegment(disciplina)
   ].join("/");
 }
