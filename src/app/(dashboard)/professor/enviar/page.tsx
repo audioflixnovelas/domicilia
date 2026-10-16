@@ -232,14 +232,14 @@ function EnviarAtividadeContent() {
         professorEmail: user!.email,
       };
 
-      // Se houver envio pendente para este aluno e turma, atualiza para 'enviado'
+      // Se houver envio pendente ou atrasado para este aluno e turma, atualiza para 'enviado'
       const todosEnvios = await FirestoreService.getAllByType<Envio>(DOC_TYPES.ENVIO);
       const envioPendente = todosEnvios.find(
-        (e) => e.alunoId === alunoId && e.turmaId === turmaId && e.status === 'pendente'
+        (e) => e.alunoId === alunoId && e.turmaId === turmaId && (e.status === 'pendente' || e.status === 'atrasado')
       );
 
       let envioId: string;
-      if (envioPendente) {
+      if (envioPendente && !envioPendente.id.startsWith('pending_')) {
         envioId = envioPendente.id;
         await FirestoreService.update(envioPendente.id, {
           ...envioData,
@@ -770,11 +770,11 @@ function EnviarAtividadeContent() {
 
                       const todosEnvios = await FirestoreService.getAllByType<Envio>(DOC_TYPES.ENVIO);
                       const envioPendente = todosEnvios.find(
-                        (e) => e.alunoId === alunoId && e.turmaId === turmaId && e.status === 'pendente'
+                        (e) => e.alunoId === alunoId && e.turmaId === turmaId && (e.status === 'pendente' || e.status === 'atrasado')
                       );
 
                       let envioId: string;
-                      if (envioPendente) {
+                      if (envioPendente && !envioPendente.id.startsWith('pending_')) {
                         envioId = envioPendente.id;
                         await FirestoreService.update(envioPendente.id, envioData);
                       } else {
