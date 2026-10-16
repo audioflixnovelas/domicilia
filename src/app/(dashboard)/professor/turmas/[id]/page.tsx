@@ -53,36 +53,27 @@ export default function TurmaAlunosPage() {
 
       const alunosDaTurma = todosAlunos.filter((a) => a.turmaId === turmaId && isPeriodoAtivo(a));
 
-      // Sincroniza envios pendentes no banco para alunos que ainda nao possuem envio registrado
-      for (const aluno of alunosDaTurma) {
-        const alunoEnvios = todosEnvios.filter((e) => e.alunoId === aluno.id && e.turmaId === turmaId);
-        if (alunoEnvios.length === 0) {
-          const novoEnvioData = {
-            atividadeId: '',
-            alunoId: aluno.id,
-            professorId: user!.id,
-            professorNome: user!.name,
-            professorEmail: user!.email,
-            turmaId,
-            disciplina: user?.disciplinas?.[0] || 'Educacao Digital',
-            versao: 1,
-            status: 'pendente' as const,
-            arquivo: null,
-            comentarios: '',
-            dataEnvio: getCurrentDate(),
-            horaEnvio: getCurrentTime(),
-            pedagogoId: turmaData?.pedagogoId || '',
-            alunoNome: aluno.nome,
-            turmaNome: turmaData?.nome || '',
-          };
-          const novoEnvioId = await FirestoreService.create<Envio>(DOC_TYPES.ENVIO, novoEnvioData);
-          todosEnvios.push({ id: novoEnvioId, ...novoEnvioData, createdAt: '', updatedAt: '' });
-        }
-      }
+      const hojeStr = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 
       const alunosComStatus: AlunoComStatus[] = alunosDaTurma.map((aluno) => {
         const alunoEnvios = todosEnvios.filter((e) => e.alunoId === aluno.id && e.turmaId === turmaId);
-        const temPendencia = alunoEnvios.some((e) => e.status === 'pendente');
+        const temPendenciaExplicit = alunoEnvios.some((e) => e.status === 'pendente' || e.status === 'atrasado');
+
+        const enviosCompletados = alunoEnvios.filter((e) => e.status === 'enviado' || e.status === 'gerado_ia');
+        const ultimoEnvio = enviosCompletados.sort((a, b) => (b.dataEnvio > a.dataEnvio ? 1 : -1))[0];
+
+        let temPendencia = temPendenciaExplicit;
+        if (!ultimoEnvio) {
+          temPendencia = true;
+        } else if (ultimoEnvio.dataEnvio) {
+          const dataUltimo = new Date(ultimoEnvio.dataEnvio);
+          const dataHoje = new Date(hojeStr);
+          const diffDias = Math.floor((dataHoje.getTime() - dataUltimo.getTime()) / (1000 * 3600 * 24));
+          if (diffDias >= 14) {
+            temPendencia = true;
+          }
+        }
+
         return { ...aluno, hasPending: temPendencia };
       });
 
