@@ -50,7 +50,8 @@ function EnviarAtividadeContent() {
     trimestre: '1',
     anoLetivo: new Date().getFullYear().toString(),
   });
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
@@ -187,31 +188,48 @@ function EnviarAtividadeContent() {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      const validation = validateFile(selectedFile);
-      if (!validation.valid) {
-        setError(validation.error || 'Arquivo invalido');
-        return;
+    const selectedFiles = e.target.files ? Array.from(e.target.files) : [];
+    if (selectedFiles.length > 0) {
+      const validFiles: File[] = [];
+      for (const f of selectedFiles) {
+        const validation = validateFile(f);
+        if (!validation.valid) {
+          setError(validation.error || `Arquivo ${f.name} é inválido.`);
+          return;
+        }
+        validFiles.push(f);
       }
-      setFile(selectedFile);
+      setFiles((prev) => [...prev, ...validFiles]);
       setError('');
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setPreviewModalOpen(true);
+  };
+
+  const confirmAndSend = async () => {
+    setPreviewModalOpen(false);
     setSending(true);
+    setError('');
 
     try {
-      let fileUpload = null;
-
-      // Upload do arquivo apenas se selecionado
-      if (file) {
+      const uploadedFiles = [];
+      if (files.length > 0) {
         const storagePath = generateStoragePath(turmaId, alunoId, formData.disciplina);
-        fileUpload = await storageProvider.upload(file, storagePath);
+        for (const f of files) {
+          const fileUpload = await storageProvider.upload(f, storagePath);
+          uploadedFiles.push(fileUpload);
+        }
       }
+
+      const primaryFile = uploadedFiles.length > 0 ? uploadedFiles[0] : null;
 
       const envioData = {
         atividadeId: '',
@@ -222,7 +240,8 @@ function EnviarAtividadeContent() {
         disciplina: formData.disciplina,
         versao: 1,
         status: 'enviado' as const,
-        arquivo: fileUpload,
+        arquivo: primaryFile,
+        arquivos: uploadedFiles,
         comentarios: formData.comentarios,
         dataEnvio: getCurrentDate(),
         horaEnvio: getCurrentTime(),
@@ -252,7 +271,8 @@ function EnviarAtividadeContent() {
       await FirestoreService.create<Historico>(DOC_TYPES.HISTORICO, {
         envioId,
         versao: 1,
-        arquivo: fileUpload,
+        arquivo: primaryFile,
+        arquivos: uploadedFiles,
         comentarios: formData.comentarios,
         dataEnvio: getCurrentDate(),
         horaEnvio: getCurrentTime(),
@@ -278,8 +298,8 @@ function EnviarAtividadeContent() {
           data: formData.data || getCurrentDate(),
           mes: formData.mes || '',
           numAulas: formData.numAulas,
-          encaminhamento: file ? 'Atividade em anexo' : 'Atividade disponivel na plataforma',
-          roteiro: formData.roteiro || (file ? 'Resolver atividade anexada' : 'Acessar plataforma e realizar atividade'),
+          encaminhamento: files.length > 0 ? 'Atividade(s) em anexo' : 'Atividade disponivel na plataforma',
+          roteiro: formData.roteiro || (files.length > 0 ? 'Resolver atividades anexadas' : 'Acessar plataforma e realizar atividade'),
           observacoes: formData.observacoes,
           quinzena: formData.quinzena,
           trimestre: formData.trimestre,
@@ -297,10 +317,10 @@ function EnviarAtividadeContent() {
         });
       }
 
-      if (file) {
-        const fileArrayBuffer = await file.arrayBuffer();
+      for (const f of files) {
+        const fileArrayBuffer = await f.arrayBuffer();
         attachments.push({
-          filename: file.name,
+          filename: f.name,
           content: Buffer.from(fileArrayBuffer),
         });
       }
@@ -327,7 +347,7 @@ function EnviarAtividadeContent() {
         <Card className="max-w-2xl"><div className="text-center py-12"><div className="mx-auto h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mb-4"><span className="text-3xl text-green-600">✓</span></div><h3 className="text-lg font-medium text-gray-900">Atividade Enviada!</h3><p className="mt-2 text-sm text-gray-500">Ficha DOCX gerada e enviada por email</p></div></Card>
       ) : (
         <Card className="max-w-2xl">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleFormSubmit} className="space-y-6">
             {aluno && (
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="font-medium text-gray-900">Aluno: {aluno.nome}</h4>
@@ -338,10 +358,37 @@ function EnviarAtividadeContent() {
             <Select label="Disciplina" value={formData.disciplina} onChange={(e) => setFormData({ ...formData, disciplina: e.target.value })} options={disciplinas.map((d) => ({ value: d, label: d }))} placeholder="Selecione" required />
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Atividade (Opcional)</label>
-              <input type="file" accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.gif,.webp" onChange={handleFileChange} className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none" />
-              <p className="mt-1 text-sm text-gray-500">Se nao selecionar arquivo, apenas a ficha sera enviada com instrucoes para acessar a plataforma</p>
-              {file && <p className="mt-2 text-sm text-green-600">{file.name}</p>}
+              <label className="block text-sm font-medium text-gray-700 mb-2">Anexar Arquivo(s) da Atividade (Permite 2 ou mais)</label>
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.gif,.webp"
+                onChange={handleFileChange}
+                className="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none p-2"
+              />
+              <p className="mt-1 text-sm text-gray-500">
+                Você pode selecionar vários arquivos de uma vez ou adicionar aos poucos. Se não selecionar nenhum, apenas a ficha de instruções será enviada.
+              </p>
+
+              {files.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs font-semibold text-gray-700 uppercase">Arquivos Selecionados ({files.length}):</p>
+                  <ul className="divide-y divide-gray-200 border border-gray-200 rounded-lg bg-white">
+                    {files.map((f, idx) => (
+                      <li key={idx} className="flex items-center justify-between p-2.5 text-sm">
+                        <span className="truncate text-gray-800 font-medium">{f.name} ({Math.round(f.size / 1024)} KB)</span>
+                        <button
+                          type="button"
+                          onClick={() => removeFile(idx)}
+                          className="ml-2 text-xs text-red-600 hover:text-red-800 font-semibold"
+                        >
+                          Remover
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             <div className="border-t pt-4">
@@ -386,7 +433,7 @@ function EnviarAtividadeContent() {
 
               <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Roteiro de Estudos</label>
-                <textarea value={formData.roteiro} onChange={(e) => setFormData({ ...formData, roteiro: e.target.value })} rows={3} className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none" placeholder={file ? 'Roteiro de estudos do aluno...' : 'Ex: Acessar link da plataforma e seguir instruções'} />
+                <textarea value={formData.roteiro} onChange={(e) => setFormData({ ...formData, roteiro: e.target.value })} rows={3} className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none" placeholder={files.length > 0 ? 'Roteiro de estudos do aluno...' : 'Ex: Acessar link da plataforma e seguir instruções'} />
               </div>
 
               <div className="mt-4">
@@ -405,9 +452,14 @@ function EnviarAtividadeContent() {
             <div className="bg-blue-50 p-4 rounded-lg">
               <h4 className="font-medium text-blue-900 mb-2">Anexos que serão enviados:</h4>
               <ul className="text-sm text-blue-800 space-y-1">
-                <li>• Ficha.docx (preenchida com os dados acima)</li>
-                {file && <li>• Arquivo da atividade (seu upload)</li>}
-                {!file && <li>• Instruções para acessar a plataforma</li>}
+                <li>• Ficha.docx (preenchida com os dados da ficha)</li>
+                {files.length > 0 ? (
+                  files.map((f, i) => (
+                    <li key={i}>• {f.name}</li>
+                  ))
+                ) : (
+                  <li>• Instruções para acessar a plataforma</li>
+                )}
               </ul>
             </div>
 
@@ -435,12 +487,81 @@ function EnviarAtividadeContent() {
 
               <div className="flex space-x-2">
                 <Button type="button" variant="outline" onClick={() => router.back()}>Cancelar</Button>
-                <Button type="submit" loading={sending} disabled={!formData.disciplina}>Enviar</Button>
+                <Button type="submit" loading={sending} disabled={!formData.disciplina}>Visualizar Prévia e Enviar</Button>
               </div>
             </div>
           </form>
         </Card>
       )}
+
+      {/* Modal de Prévia do Envio */}
+      <Modal
+        isOpen={previewModalOpen}
+        onClose={() => setPreviewModalOpen(false)}
+        title="Prévia do Envio da Atividade"
+        size="lg"
+      >
+        <div className="space-y-4 text-sm text-gray-800">
+          <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 space-y-2">
+            <h4 className="font-semibold text-blue-900 text-base">Resumo das Informações</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+              <p><strong>Aluno:</strong> {aluno?.nome}</p>
+              <p><strong>Turma:</strong> {turma?.nome}</p>
+              <p><strong>Disciplina:</strong> {formData.disciplina}</p>
+              <p><strong>Professor(a):</strong> {user?.name}</p>
+              <p><strong>Nº da Ficha:</strong> {formData.quinzena}</p>
+              <p><strong>Trimestre:</strong> {formData.trimestre}º Trimestre</p>
+              <p><strong>Ano Letivo:</strong> {formData.anoLetivo}</p>
+              <p><strong>Data / Período:</strong> {formData.data || getCurrentDate()}</p>
+              {formData.numAulas && <p><strong>Nº de Aulas:</strong> {formData.numAulas}</p>}
+              {formData.mes && <p><strong>Mês:</strong> {formData.mes}</p>}
+            </div>
+          </div>
+
+          <div className="border p-3 rounded-lg bg-gray-50 space-y-1">
+            <p className="font-semibold text-gray-900">Roteiro de Estudos:</p>
+            <p className="text-gray-700 whitespace-pre-wrap">{formData.roteiro || '(Roteiro padrão de envio)'}</p>
+          </div>
+
+          {formData.observacoes && (
+            <div className="border p-3 rounded-lg bg-gray-50 space-y-1">
+              <p className="font-semibold text-gray-900">Observações da Ficha:</p>
+              <p className="text-gray-700 whitespace-pre-wrap">{formData.observacoes}</p>
+            </div>
+          )}
+
+          {formData.comentarios && (
+            <div className="border p-3 rounded-lg bg-gray-50 space-y-1">
+              <p className="font-semibold text-gray-900">Comentários Internos:</p>
+              <p className="text-gray-700 whitespace-pre-wrap">{formData.comentarios}</p>
+            </div>
+          )}
+
+          <div className="border p-3 rounded-lg bg-gray-50 space-y-2">
+            <p className="font-semibold text-gray-900">Anexos Gerados e Anexados ({files.length + 1}):</p>
+            <ul className="list-disc list-inside text-gray-700 space-y-1 text-xs">
+              <li>
+                <span className="font-medium text-blue-700">Ficha oficial (DOCX):</span>{' '}
+                ficha_{aluno?.nome?.replace(/\s/g, '_')}_{formData.disciplina}.docx
+              </li>
+              {files.map((f, i) => (
+                <li key={i}>
+                  <span className="font-medium text-green-700">Anexo {i + 1}:</span> {f.name} ({Math.round(f.size / 1024)} KB)
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="flex justify-end space-x-2 pt-3 border-t">
+            <Button variant="outline" onClick={() => setPreviewModalOpen(false)}>
+              Voltar e Editar
+            </Button>
+            <Button onClick={confirmAndSend} loading={sending}>
+              Confirmar e Enviar Atividade
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Modal de Geração por IA para o Professor */}
       <Modal
@@ -698,11 +819,15 @@ function EnviarAtividadeContent() {
                       const configs = await FirestoreService.getAllByType<ConfiguracaoGlobal>(DOC_TYPES.CONFIGURACAO);
                       const globalConfig = configs.length > 0 ? configs[0] : null;
 
-                      let fileUpload = null;
-                      if (file) {
+                      const uploadedFiles = [];
+                      if (files.length > 0) {
                         const storagePath = generateStoragePath(turmaId, alunoId, formData.disciplina);
-                        fileUpload = await storageProvider.upload(file, storagePath);
+                        for (const f of files) {
+                          const fileUpload = await storageProvider.upload(f, storagePath);
+                          uploadedFiles.push(fileUpload);
+                        }
                       }
+                      const primaryFile = uploadedFiles.length > 0 ? uploadedFiles[0] : null;
 
                       // Gera a Ficha de Atividade (DOCX) oficial do Colégio Maluf
                       const fichaResponse = await fetch('/api/ficha', {
@@ -717,7 +842,7 @@ function EnviarAtividadeContent() {
                           data: formData.data || getCurrentDate(),
                           mes: formData.mes || '',
                           numAulas: formData.numAulas || '4',
-                          encaminhamento: fileUpload ? 'Atividade em anexo e gerada por IA' : 'Atividade Gerada por IA em anexo',
+                          encaminhamento: primaryFile ? 'Atividade em anexo e gerada por IA' : 'Atividade Gerada por IA em anexo',
                           roteiro: formData.roteiro || aiForm.conteudo || 'Realizar exercícios da atividade adaptada em anexo',
                           observacoes: formData.observacoes || (aiForm.laudoAluno ? `Atividade adaptada: ${aiForm.laudoAluno}` : 'Atividade desenvolvida com apoio de IA'),
                           quinzena: formData.quinzena || '1',
@@ -741,10 +866,10 @@ function EnviarAtividadeContent() {
                         { filename: `atividade_${aluno?.nome?.replace(/\s/g, '_')}_${formData.disciplina}.docx`, content: docx }
                       );
 
-                      if (file) {
-                        const fileArrayBuffer = await file.arrayBuffer();
+                      for (const f of files) {
+                        const fileArrayBuffer = await f.arrayBuffer();
                         attachments.push({
-                          filename: file.name,
+                          filename: f.name,
                           content: Buffer.from(fileArrayBuffer),
                         });
                       }
@@ -758,7 +883,8 @@ function EnviarAtividadeContent() {
                         disciplina: formData.disciplina,
                         versao: 1,
                         status: 'gerado_ia' as const,
-                        arquivo: fileUpload,
+                        arquivo: primaryFile,
+                        arquivos: uploadedFiles,
                         comentarios: `Gerado por IA pelo Prof. ${user!.name}. ${aiForm.laudoAluno ? '(Com adaptações de laudo)' : ''}`,
                         dataEnvio: getCurrentDate(),
                         horaEnvio: getCurrentTime(),

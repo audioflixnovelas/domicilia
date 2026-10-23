@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { to, subject, html, attachments } = await request.json();
+    const { to, subject, html, attachments, from } = await request.json();
 
     if (!to || !subject || !html) {
       return NextResponse.json({ error: 'Campos obrigatorios nao informados' }, { status: 400 });
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     const recipient = to === 'cartoonlandiapr@gmail.com' ? 'domiciliarmaluf@gmail.com' : to;
 
     const body: any = {
-      from: process.env.EMAIL_FROM || 'sistema@domicilia.com.br',
+      from: from || process.env.EMAIL_FROM || 'notificacao@domiciliar.systematrix.com.br',
       to: recipient,
       subject,
       html,
