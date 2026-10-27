@@ -32,13 +32,27 @@ class ResendEmailService implements EmailService {
     this.apiKey = process.env.RESEND_API_KEY || '';
   }
 
-  private async send(to: string, subject: string, html: string, attachments?: { filename: string; content: Buffer }[]): Promise<boolean> {
+  private async send(
+    to: string,
+    subject: string,
+    html: string,
+    attachments?: { filename: string; content: Buffer }[],
+    fromName?: string
+  ): Promise<boolean> {
     try {
       const recipient = to === 'cartoonlandiapr@gmail.com' ? 'domiciliarmaluf@gmail.com' : to;
       const resendApiKey = process.env.RESEND_API_KEY;
+      const defaultFrom = process.env.EMAIL_FROM || 'notificacao@domiciliar.systematrix.com.br';
+      let cleanFromAddress = defaultFrom;
+      const match = defaultFrom.match(/<([^>]+)>/);
+      if (match) {
+        cleanFromAddress = match[1];
+      }
+      const customFrom = fromName ? `${fromName} <${cleanFromAddress}>` : defaultFrom;
+
       if (typeof window === 'undefined' && resendApiKey) {
         const body: any = {
-          from: process.env.EMAIL_FROM || 'sistema@domicilia.com.br',
+          from: customFrom,
           to: recipient,
           subject,
           html,
@@ -60,7 +74,7 @@ class ResendEmailService implements EmailService {
         return response.ok;
       }
 
-      const body: any = { to: recipient, subject, html };
+      const body: any = { to: recipient, subject, html, from: customFrom };
       if (attachments && attachments.length > 0) {
         body.attachments = attachments.map((a) => ({
           filename: a.filename,
@@ -134,7 +148,8 @@ class ResendEmailService implements EmailService {
       destination,
       `Atividade Domiciliar - ${envio.alunoNome}`,
       html,
-      attachments
+      attachments,
+      envio.professorNome
     );
   }
 
